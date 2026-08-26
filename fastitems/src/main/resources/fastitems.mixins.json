@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "cn.noryea.fastitems.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ItemStackEntityRenderStateMixin",
+    "ItemEntityRendererMixin",
+    "ItemStackRenderStateAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

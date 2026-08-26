@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils-itemglow",
+  "version": "${version}",
+  "name": "HugoUtils Item Glow",
+  "description": "Dropped/held item glow and custom enchantment glint.",
+  "authors": ["henny"],
+  "contact": {
+    "homepage": "https://github.com/Henny263462/HugoUtils",
+    "sources": "https://github.com/Henny263462/HugoUtils",
+    "issues": "https://github.com/Henny263462/HugoUtils/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/hugoutils/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.henny.hugoutils.itemglow.ItemGlowMod"
+    ]
+  },
+  "mixins": [
+    "hugoutils-itemglow.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}",
+    "hugoutils-core": "${version}"
+  }
+}

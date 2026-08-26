@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "fastitems",
+  "version": "${version}",
+  "name": "Fast Items",
+  "description": "Optimize item rendering by transforming item entities to 2D.",
+  "authors": ["Noryea"],
+  "contact": {
+    "sources": "https://github.com/Noryea/fast-items-fabric",
+    "issues": "https://github.com/Noryea/fast-items-fabric/issues"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/fastitems/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "cn.noryea.fastitems.FastItemsFabric"
+    ]
+  },
+  "mixins": [
+    "fastitems.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "minecraft": "${minecraft_version}",
+    "hugoutils-core": "${version}",
+    "java": ">=21"
+  }
+}

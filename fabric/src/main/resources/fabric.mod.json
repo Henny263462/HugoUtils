@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils",
+  "version": "${version}",
+  "name": "HugoUtils",
+  "description": "Configurable client-side glow effects and rendering utilities for Hugo SMP.",
+  "authors": ["henny"],
+  "contact": {
+    "homepage": "https://github.com/Henny263462/HugoUtils",
+    "sources": "https://github.com/Henny263462/HugoUtils",
+    "issues": "https://github.com/Henny263462/HugoUtils/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/hugoutils/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": [],
+    "client": []
+  },
+  "mixins": [],
+  "jars": [
+    { "file": "META-INF/jars/hugoutils-core-${version}.jar" },
+    { "file": "META-INF/jars/hugoutils-itemglow-${version}.jar" },
+    { "file": "META-INF/jars/hugoutils-playerglow-${version}.jar" },
+    { "file": "META-INF/jars/fastitems-${version}.jar" }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

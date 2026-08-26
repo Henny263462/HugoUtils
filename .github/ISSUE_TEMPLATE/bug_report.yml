@@ -1,0 +1,60 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Please remove access tokens, account details, and private server information from logs.
+  - type: input
+    id: version
+    attributes:
+      label: HugoUtils version
+      placeholder: 0.0.1
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Minecraft, Fabric Loader, Fabric API, and Java versions
+    validations:
+      required: true
+  - type: dropdown
+    id: access
+    attributes:
+      label: Was the affected feature unlocked?
+      options:
+        - "Yes"
+        - "No"
+        - "Unknown"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: text

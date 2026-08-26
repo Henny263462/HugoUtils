@@ -1,0 +1,33 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Gradle and build output
+.gradle/
+**/build/
+.architectury-transformer/
+
+# Local reverse-engineering and scratch files
+.tmp/
+
+# IDEs
+out/
+.idea/
+.vscode/
+*.iml
+.idea_modules/
+
+# Local game directories and logs
+**/run/
+*.log
+
+# JVM crash logs
+hs_err_pid*
+replay_pid*
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem

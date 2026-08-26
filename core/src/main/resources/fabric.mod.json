@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils-core",
+  "version": "${version}",
+  "name": "HugoUtils Core",
+  "description": "Shared configuration, UI and rendering utilities for HugoUtils.",
+  "authors": ["henny"],
+  "contact": {
+    "homepage": "https://github.com/Henny263462/HugoUtils",
+    "sources": "https://github.com/Henny263462/HugoUtils",
+    "issues": "https://github.com/Henny263462/HugoUtils/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/hugoutils/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "dev.henny.hugoutils.Hugoutils"
+    ],
+    "client": [
+      "dev.henny.hugoutils.client.HugoutilsClient"
+    ]
+  },
+  "mixins": [
+    "hugoutils-core.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

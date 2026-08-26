@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.henny.hugoutils.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+  ],
+  "client": [
+    "RenderLayerAccessor",
+    "RenderLayerInvoker",
+    "RenderPipelinesOutlineMixin",
+    "RenderSetupAccessor",
+    "RenderSetupTextureSpecAccessor",
+    "WorldRendererOutlineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.henny.hugoutils.itemglow.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+  ],
+  "client": [
+    "BufferBuilderStorageMixin",
+    "HeldItemRendererMixin",
+    "ItemEntityRendererMixin",
+    "ItemRendererMixin",
+    "ItemRenderStateAccessor",
+    "ItemRenderStateMixin",
+    "ItemStackEntityRenderStateMixin",
+    "LayerRenderStateAccessor",
+    "PlayerHeldItemFeatureRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
