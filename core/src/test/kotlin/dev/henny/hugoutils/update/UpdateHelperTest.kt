@@ -53,6 +53,6 @@ class UpdateHelperTest {
         assertEquals(0, code)
         assertEquals("new", Files.readString(destination))
         assertFalse(Files.exists(current))
-        assertEquals(1, Files.list(mods).use { paths -> paths.filter { it.fileName.toString().endsWith(".jar") }.count() })
+        assertEquals(1, Files.list(mods).use { stream -> stream.filter { path -> path.fileName.toString().endsWith(".jar") }.count() })
     }
 }

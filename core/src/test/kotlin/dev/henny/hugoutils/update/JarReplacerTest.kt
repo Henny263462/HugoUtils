@@ -38,7 +38,7 @@ class JarReplacerTest {
         JarReplacer.install(current, staged, destination, expected)
         assertEquals("new-mod", Files.readString(destination))
         assertFalse(Files.exists(current))
-        assertTrue(Files.list(mods).use { it.none { path -> path.fileName.toString().endsWith(".bak") } })
+        assertTrue(Files.list(mods).use { stream -> stream.noneMatch { path -> path.fileName.toString().endsWith(".bak") } })
     }
 
     @Test
@@ -74,7 +74,7 @@ class JarReplacerTest {
         JarReplacer.install(current, staged, destination, expected)
         assertEquals("new-mod", Files.readString(destination))
         assertFalse(Files.exists(mods.resolve("HugoUtils-1.0.0.jar")))
-        assertEquals(1, Files.list(mods).use { it.filter { path -> path.fileName.toString().endsWith(".jar") }.count() })
+        assertEquals(1, Files.list(mods).use { stream -> stream.filter { path -> path.fileName.toString().endsWith(".jar") }.count() })
     }
 
     @Test
