@@ -1,5 +1,9 @@
 # Third-party notices
 
+The HugoUtils Source Available License 1.0 applies only to materials owned by
+the HugoUtils project or its contributors. It does not revoke, restrict,
+override, or replace rights granted by applicable third-party licenses.
+
 ## Fast Items
 
 HugoUtils contains a modified version of Fast Items by Noryea.
@@ -11,7 +15,8 @@ HugoUtils contains a modified version of Fast Items by Noryea.
   rendering modules
 
 The original project metadata and author attribution remain included in the
-bundled Fast Items module.
+bundled Fast Items module. The HugoUtils Source Available License does not
+override or restrict the CC0 1.0 Universal rights that apply to Fast Items.
 
 Minecraft is a trademark of Microsoft Corporation. This project is not
 affiliated with or endorsed by Mojang Studios or Microsoft.

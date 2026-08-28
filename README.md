@@ -79,6 +79,19 @@ issues should be reported according to [SECURITY.md](SECURITY.md).
 
 ## License
 
-HugoUtils is available under the MIT License. The bundled Fast Items code is
-available under CC0-1.0. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-for details.
+HugoUtils is source-available under the
+[HugoUtils Source Available License 1.0](LICENSE.txt). It is not an Open Source
+license as defined by the Open Source Initiative.
+
+You may view the source, modify it for personal private use, and compile and
+use original or privately modified versions. Redistribution of original or
+modified HugoUtils is prohibited without prior written permission from the
+HugoUtils copyright holders.
+
+Portions derived from Fast Items remain licensed under CC0 1.0 Universal and
+are not restricted by the HugoUtils license where CC0 applies. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Previous HugoUtils releases that were already published under the MIT License
+remain MIT licensed. This license does not apply retroactively to those
+releases.
