@@ -1,21 +1,102 @@
-The MIT License (MIT)
+HugoUtils Source Available License 1.0
 
-Copyright (c) 2026 henny
+Copyright (c) HugoUtils contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Permission
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+Permission is granted to any person obtaining a copy of HugoUtils and its source code to:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+* view and study the source code;
+* modify the source code for personal, private use;
+* compile modified versions for personal, private use;
+* use original or modified versions of HugoUtils for personal, private use;
+* create repository forks or copies solely for the purpose of contributing changes back to the official HugoUtils project.
+
+These permissions are subject to the restrictions below.
+
+2. Redistribution
+
+You may not distribute, publish, share, sublicense, sell, rent, host, mirror, or otherwise provide copies of HugoUtils to third parties.
+
+This restriction applies to both original and modified versions of HugoUtils, including:
+
+* compiled JAR files;
+* source code;
+* modified source code;
+* forks intended for independent distribution;
+* repackaged or renamed versions;
+* versions bundled into other downloadable software or mod packs where HugoUtils itself is redistributed.
+
+You may not publish HugoUtils or modified versions of HugoUtils on platforms such as Modrinth, CurseForge, GitHub Releases, mirrors, file hosts, or similar distribution services without prior written permission from the HugoUtils copyright holders.
+
+Private modifications may not be shared with another person unless prior written permission has been granted by the HugoUtils copyright holders.
+
+3. Modifications
+
+You may modify HugoUtils for your own private use.
+
+Modified versions may be compiled and used privately.
+
+Modified versions must not be distributed, published, uploaded, sold, shared, or otherwise provided to third parties without prior written permission from the HugoUtils copyright holders.
+
+Changes submitted directly to the official HugoUtils project through pull requests, patches, or other official contribution mechanisms are permitted.
+
+4. Commercial Use
+
+You may not sell, license, commercially distribute, rent, sublicense, monetize redistribution of, or otherwise commercially distribute HugoUtils or modified versions of HugoUtils without prior written permission.
+
+Personal use of HugoUtils while playing on commercial Minecraft servers is not considered commercial distribution.
+
+5. Contributions
+
+By intentionally submitting a contribution to the official HugoUtils project, you grant the HugoUtils project maintainers a perpetual, worldwide, non-exclusive, royalty-free license to use, reproduce, modify, distribute, sublicense, and relicense that contribution as part of HugoUtils.
+
+You retain copyright to your own contribution unless otherwise agreed in writing.
+
+6. Third-Party Components
+
+This license applies only to code, assets, documentation, and other materials owned by the HugoUtils project or its contributors and distributed under this license.
+
+Third-party components included with HugoUtils remain subject to their respective licenses.
+
+In particular, portions derived from Fast Items are licensed separately under the CC0 1.0 Universal license and are not restricted by this license where CC0 applies.
+
+Nothing in this license is intended to revoke, restrict, override, or replace rights granted by applicable third-party licenses.
+
+See THIRD_PARTY_NOTICES.md for additional information.
+
+7. Trademarks and Branding
+
+This license does not grant permission to use the HugoUtils name, logo, branding, visual identity, or other project identifiers for independently distributed projects.
+
+You may not present a modified or independent version as an official HugoUtils release without prior written permission.
+
+8. Termination
+
+Your rights under this license terminate automatically if you violate any term of this license.
+
+Upon termination, you must immediately stop exercising the rights granted by this license.
+
+Termination does not affect rights granted separately under applicable third-party licenses.
+
+The HugoUtils copyright holders may restore your permissions in writing.
+
+9. Warranty Disclaimer
+
+HUGOUTILS IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+10. Limitation of Liability
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDERS, CONTRIBUTORS, OR PROJECT MAINTAINERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH HUGOUTILS OR THE USE OR OTHER DEALINGS IN HUGOUTILS.
+
+11. Additional Permissions
+
+The HugoUtils copyright holders may grant additional permissions, redistribution rights, commercial rights, or alternative licensing terms in writing.
+
+Any such additional permission applies only to the person or organization to whom it was explicitly granted unless stated otherwise.
+
+12. License Classification
+
+HugoUtils Source Available License 1.0 is a source-available license.
+
+It is not an Open Source license as defined by the Open Source Initiative because redistribution and independent distribution of modified versions are restricted.

@@ -27,6 +27,13 @@ Fabric Loader, and Fabric API versions in bug reports and pull requests.
 
 ## Licensing
 
-By contributing, you agree that your contribution may be distributed under the
-MIT License. Changes based on third-party code must preserve its license and be
-recorded in `THIRD_PARTY_NOTICES.md`.
+By intentionally submitting a contribution to the official HugoUtils project,
+you grant the HugoUtils project maintainers a perpetual, worldwide,
+non-exclusive, royalty-free license to use, reproduce, modify, distribute,
+sublicense, and relicense that contribution as part of HugoUtils.
+
+You retain copyright to your own contribution unless otherwise agreed in
+writing.
+
+Changes based on third-party code must preserve its license and be recorded in
+`THIRD_PARTY_NOTICES.md`.

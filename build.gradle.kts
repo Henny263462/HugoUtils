@@ -41,8 +41,12 @@ subprojects {
 
     tasks.withType<Jar>().configureEach {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from(rootProject.file("LICENSE.txt")) {
-            rename { "LICENSE_${rootProject.name}_${project.name}.txt" }
+        // Fast Items remains CC0; do not package the HugoUtils license into that JAR.
+        if (project.name != "fastitems") {
+            from(rootProject.file("LICENSE.txt")) {
+                rename { "LICENSE_${rootProject.name}_${project.name}.txt" }
+            }
         }
+        from(rootProject.file("THIRD_PARTY_NOTICES.md"))
     }
 }
