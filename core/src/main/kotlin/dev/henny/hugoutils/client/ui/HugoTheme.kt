@@ -25,6 +25,7 @@ object HugoTheme {
     const val comingSoon = 0xFF3A4152.toInt()
     const val tooltipBg = 0xF6121620.toInt()
     const val helper = 0xFF7A8299.toInt()
+    const val danger = 0xFFFF6B6B.toInt()
     const val glintPurple = 0xFF9B5CFF.toInt()
 
     fun withAlpha(color: Int, alpha: Int): Int {

@@ -1,12 +1,11 @@
 package dev.henny.hugoutils.client.ui
 
 import dev.henny.hugoutils.HugoIds
-import dev.henny.hugoutils.client.access.AccessFeature
-import dev.henny.hugoutils.client.access.FeatureAccessManager
 import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.config.GlintStyle
 import dev.henny.hugoutils.client.config.GlintChangeListener
 import dev.henny.hugoutils.client.config.GlowStyle
+import dev.henny.hugoutils.update.UpdateManager
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.Mouse
 import net.minecraft.client.gui.Click
@@ -59,7 +58,6 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
 
     override fun init() {
         super.init()
-        FeatureAccessManager.refreshNow()
         PopupManager.close()
         pageAnim = 1f
         droppedPicker = ColorPicker(textRenderer) { persist() }
@@ -95,30 +93,22 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         pageAnim = UiDraw.lerp(pageAnim, 1f, 0.25f * dt * 3f)
         toggleAnimDropped = UiDraw.lerp(
             toggleAnimDropped,
-            if (FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) &&
-                ConfigManager.config.droppedItemGlow.enabled
-            ) 1f else 0f,
+            if (ConfigManager.config.droppedItemGlow.enabled) 1f else 0f,
             0.3f * dt * 3f
         )
         toggleAnimHeldGlow = UiDraw.lerp(
             toggleAnimHeldGlow,
-            if (FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) &&
-                ConfigManager.config.heldItemGlow.enabled
-            ) 1f else 0f,
+            if (ConfigManager.config.heldItemGlow.enabled) 1f else 0f,
             0.3f * dt * 3f
         )
         toggleAnimPlayerGlow = UiDraw.lerp(
             toggleAnimPlayerGlow,
-            if (FeatureAccessManager.has(AccessFeature.PLAYER_GLOW) &&
-                ConfigManager.config.playerGlow.enabled
-            ) 1f else 0f,
+            if (ConfigManager.config.playerGlow.enabled) 1f else 0f,
             0.3f * dt * 3f
         )
         toggleAnimGlint = UiDraw.lerp(
             toggleAnimGlint,
-            if (FeatureAccessManager.has(AccessFeature.HELD_GLINT) &&
-                ConfigManager.config.heldGlint.enabled
-            ) 1f else 0f,
+            if (ConfigManager.config.heldGlint.enabled) 1f else 0f,
             0.3f * dt * 3f
         )
 
@@ -344,7 +334,15 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
             .getModContainer(HugoIds.MOD_ID)
             .map { it.metadata.version.friendlyString }
             .orElse("dev")
-        context.drawText(textRenderer, "v$version", sidebar.x + 12, sidebar.bottom() - 16, HugoTheme.textDim, false)
+        val versionLabel = if (UpdateManager.hasUpdate()) "v$version ↑" else "v$version"
+        context.drawText(
+            textRenderer,
+            versionLabel,
+            sidebar.x + 12,
+            sidebar.bottom() - 16,
+            if (UpdateManager.hasUpdate()) HugoTheme.accent else HugoTheme.textDim,
+            false
+        )
     }
 
     private fun drawContent(context: DrawContext, mouseX: Int, mouseY: Int) {
@@ -362,8 +360,7 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 SliderId.DROPPED_INTENSITY,
                 SliderId.DROPPED_WIDTH,
                 expandedDropped,
-                droppedFilter,
-                AccessFeature.DROPPED_ITEM_GLOW
+                droppedFilter
             )
             drawGlintCard(context)
             drawGlowCard(
@@ -378,8 +375,7 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 SliderId.HELD_INTENSITY,
                 SliderId.HELD_WIDTH,
                 expandedHeldGlow,
-                heldGlowFilter,
-                AccessFeature.HELD_ITEM_GLOW
+                heldGlowFilter
             )
             drawGlowCard(
                 context,
@@ -393,8 +389,7 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 SliderId.PLAYER_INTENSITY,
                 SliderId.PLAYER_WIDTH,
                 expandedPlayerGlow,
-                null,
-                AccessFeature.PLAYER_GLOW
+                null
             )
             for (page in extraPages()) {
                 page.render(context, mouseX, mouseY)
@@ -433,13 +428,11 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         intensityId: SliderId,
         widthId: SliderId,
         expanded: Boolean,
-        filter: ItemFilterPanel?,
-        feature: AccessFeature
+        filter: ItemFilterPanel?
     ) {
         UiDraw.panel(context, layout.card, HugoTheme.card, HugoTheme.cardBorder)
         drawCardHeader(context, layout.card, layout.toggle, layout.helper, title, expanded, toggleAnim, helperText)
         if (!expanded) {
-            if (!FeatureAccessManager.has(feature)) drawLockedOverlay(context, layout.card)
             return
         }
         picker.render(context, style)
@@ -449,9 +442,6 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 (style.thicknessPixels - 1) / 3f, widthId)
         }
         drawFilterButton(context, layout.filterButton, if (filter == null) "Spieler auswählen…" else "Items / Blöcke auswählen…")
-        if (!FeatureAccessManager.has(feature)) {
-            drawLockedOverlay(context, layout.card)
-        }
     }
 
     private fun drawGlintCard(context: DrawContext) {
@@ -461,7 +451,6 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         UiDraw.panel(context, layout.card, HugoTheme.card, HugoTheme.cardBorder)
         drawCardHeader(context, layout.card, layout.toggle, layout.helper, "Hand-Glint", expandedGlint, toggleAnimGlint, GLINT_HELPER)
         if (!expandedGlint) {
-            if (!FeatureAccessManager.has(AccessFeature.HELD_GLINT)) drawLockedOverlay(context, layout.card)
             return
         }
 
@@ -487,21 +476,6 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         val speedFactor = 0.2f + glint.speed * 2.3f
         drawSlider(context, layout.speed, "Geschwindigkeit (${String.format("%.1f", speedFactor)}×)", glint.speed, SliderId.GLINT_SPEED)
         drawFilterButton(context, layout.filterButton, "Items / Blöcke auswählen…")
-        if (!FeatureAccessManager.has(AccessFeature.HELD_GLINT)) {
-            drawLockedOverlay(context, layout.card)
-        }
-    }
-
-    private fun drawLockedOverlay(context: DrawContext, card: UiRect) {
-        UiDraw.fill(context, card, 0xB010131A.toInt())
-        context.drawText(
-            textRenderer,
-            "Nicht freigeschaltet",
-            card.right() - textRenderer.getWidth("Nicht freigeschaltet") - 10,
-            card.y + 10,
-            HugoTheme.textDim,
-            false
-        )
     }
 
     private fun drawFilterButton(context: DrawContext, rect: UiRect, label: String) {
@@ -580,9 +554,6 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         }
 
         if (category == ConfigCategory.VISUALS && scissor.contains(mx, my)) {
-            if (lockedVisualCardAt(mx, my)) {
-                return true
-            }
             if (droppedCard.toggle.contains(mx, my)) {
                 ConfigManager.update { it.droppedItemGlow.enabled = !it.droppedItemGlow.enabled }
                 return true
@@ -717,13 +688,13 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         val (mx, my) = pointer(click)
         if (category == ConfigCategory.VISUALS) {
             val pickerDragged =
-                (FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) && expandedDropped &&
+                (expandedDropped &&
                     droppedPicker.mouseDragged(ConfigManager.config.droppedItemGlow, mx, my)) ||
-                    (FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) && expandedHeldGlow &&
+                    (expandedHeldGlow &&
                         heldGlowPicker.mouseDragged(ConfigManager.config.heldItemGlow, mx, my)) ||
-                    (FeatureAccessManager.has(AccessFeature.PLAYER_GLOW) && expandedPlayerGlow &&
+                    (expandedPlayerGlow &&
                         playerGlowPicker.mouseDragged(ConfigManager.config.playerGlow, mx, my)) ||
-                    (FeatureAccessManager.has(AccessFeature.HELD_GLINT) && expandedGlint &&
+                    (expandedGlint &&
                         glintPicker.mouseDragged(ConfigManager.config.heldGlint, mx, my))
             if (pickerDragged) {
                 persist()
@@ -767,18 +738,15 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         val (mx, my) = scalePointer(mouseX, mouseY)
         PopupManager.active?.let { return it.mouseScrolled(mx, my, verticalAmount) }
         if (category == ConfigCategory.VISUALS) {
-            if (FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) &&
-                expandedDropped && droppedFilter.mouseScrolled(mx, my, verticalAmount)
+            if (expandedDropped && droppedFilter.mouseScrolled(mx, my, verticalAmount)
             ) {
                 return true
             }
-            if (FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) &&
-                expandedHeldGlow && heldGlowFilter.mouseScrolled(mx, my, verticalAmount)
+            if (expandedHeldGlow && heldGlowFilter.mouseScrolled(mx, my, verticalAmount)
             ) {
                 return true
             }
-            if (FeatureAccessManager.has(AccessFeature.HELD_GLINT) &&
-                expandedGlint && glintFilter.mouseScrolled(mx, my, verticalAmount)
+            if (expandedGlint && glintFilter.mouseScrolled(mx, my, verticalAmount)
             ) {
                 return true
             }
@@ -800,15 +768,15 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         PopupManager.active?.let { return it.keyPressed(input) }
         val extrasHandled = extraPages().any { it.keyPressed(input) }
         val handled = extrasHandled || if (category == ConfigCategory.VISUALS) {
-            (FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) && expandedDropped &&
+            (expandedDropped &&
                 (droppedFilter.keyPressed(input) ||
                     droppedPicker.keyPressed(ConfigManager.config.droppedItemGlow, input))) ||
-                (FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) && expandedHeldGlow &&
+                (expandedHeldGlow &&
                     (heldGlowFilter.keyPressed(input) ||
                         heldGlowPicker.keyPressed(ConfigManager.config.heldItemGlow, input))) ||
-                (FeatureAccessManager.has(AccessFeature.PLAYER_GLOW) && expandedPlayerGlow &&
+                (expandedPlayerGlow &&
                     playerGlowPicker.keyPressed(ConfigManager.config.playerGlow, input)) ||
-                (FeatureAccessManager.has(AccessFeature.HELD_GLINT) && expandedGlint &&
+                (expandedGlint &&
                     (glintFilter.keyPressed(input) ||
                         glintPicker.keyPressed(ConfigManager.config.heldGlint, input)))
         } else {
@@ -824,15 +792,15 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         PopupManager.active?.let { return it.charTyped(input) }
         val extrasHandled = extraPages().any { it.charTyped(input) }
         val handled = extrasHandled || if (category == ConfigCategory.VISUALS) {
-            (FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) && expandedDropped &&
+            (expandedDropped &&
                 (droppedFilter.charTyped(input) ||
                     droppedPicker.charTyped(ConfigManager.config.droppedItemGlow, input))) ||
-                (FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) && expandedHeldGlow &&
+                (expandedHeldGlow &&
                     (heldGlowFilter.charTyped(input) ||
                         heldGlowPicker.charTyped(ConfigManager.config.heldItemGlow, input))) ||
-                (FeatureAccessManager.has(AccessFeature.PLAYER_GLOW) && expandedPlayerGlow &&
+                (expandedPlayerGlow &&
                     playerGlowPicker.charTyped(ConfigManager.config.playerGlow, input)) ||
-                (FeatureAccessManager.has(AccessFeature.HELD_GLINT) && expandedGlint &&
+                (expandedGlint &&
                     (glintFilter.charTyped(input) ||
                         glintPicker.charTyped(ConfigManager.config.heldGlint, input)))
         } else {
@@ -853,31 +821,20 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
     }
 
     private fun sliderEnabled(id: SliderId): Boolean = when (id) {
-        SliderId.DROPPED_TRANSPARENCY ->
-            FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) && expandedDropped
+        SliderId.DROPPED_TRANSPARENCY -> expandedDropped
         SliderId.DROPPED_INTENSITY, SliderId.DROPPED_WIDTH -> false
-        SliderId.GLINT_TRANSPARENCY, SliderId.GLINT_SPEED ->
-            FeatureAccessManager.has(AccessFeature.HELD_GLINT) && expandedGlint
-        SliderId.HELD_TRANSPARENCY, SliderId.HELD_WIDTH ->
-            FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) && expandedHeldGlow
+        SliderId.GLINT_TRANSPARENCY, SliderId.GLINT_SPEED -> expandedGlint
+        SliderId.HELD_TRANSPARENCY, SliderId.HELD_WIDTH -> expandedHeldGlow
         SliderId.HELD_INTENSITY -> false
-        SliderId.PLAYER_TRANSPARENCY ->
-            FeatureAccessManager.has(AccessFeature.PLAYER_GLOW) && expandedPlayerGlow
+        SliderId.PLAYER_TRANSPARENCY -> expandedPlayerGlow
         SliderId.PLAYER_INTENSITY, SliderId.PLAYER_WIDTH -> false
     }
 
     private fun hoveredVisualStack() =
-        (droppedFilter.hoveredStack.takeIf { FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) })
-            ?: (heldGlowFilter.hoveredStack.takeIf { FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) })
-            ?: (glintFilter.hoveredStack.takeIf { FeatureAccessManager.has(AccessFeature.HELD_GLINT) })
+        droppedFilter.hoveredStack
+            ?: heldGlowFilter.hoveredStack
+            ?: glintFilter.hoveredStack
             ?: extraPages().firstNotNullOfOrNull { it.hoveredStack() }
-
-    private fun lockedVisualCardAt(mx: Double, my: Double): Boolean {
-        return (!FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) && droppedCard.card.contains(mx, my)) ||
-            (!FeatureAccessManager.has(AccessFeature.HELD_GLINT) && glintCard.card.contains(mx, my)) ||
-            (!FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) && heldGlowCard.card.contains(mx, my)) ||
-            (!FeatureAccessManager.has(AccessFeature.PLAYER_GLOW) && playerGlowCard.card.contains(mx, my))
-    }
 
     private fun sliderRect(id: SliderId): UiRect = when (id) {
         SliderId.DROPPED_TRANSPARENCY -> droppedCard.transparency

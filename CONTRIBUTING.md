@@ -1,6 +1,7 @@
 # Contributing
 
-Contributions are welcome through GitHub issues and pull requests.
+Contributions are welcome through GitHub issues, branches, forks, and pull
+requests.
 
 ## Development setup
 
@@ -18,8 +19,8 @@ Use `gradlew.bat` instead of `gradlew` on Windows if needed.
 - Do not commit generated files, game files, logs, or decompiled Minecraft
   sources.
 - Run `./gradlew clean :fabric:build` before submitting.
-- Test rendering changes in game, including the feature's disabled and
-  unauthorized states.
+- Test rendering changes in game, including each feature's enabled and
+  disabled states.
 - Update documentation when behavior or network access changes.
 
 Minecraft and Fabric internals change frequently. Include the tested Minecraft,
@@ -27,13 +28,12 @@ Fabric Loader, and Fabric API versions in bug reports and pull requests.
 
 ## Licensing
 
-By intentionally submitting a contribution to the official HugoUtils project,
-you grant the HugoUtils project maintainers a perpetual, worldwide,
-non-exclusive, royalty-free license to use, reproduce, modify, distribute,
-sublicense, and relicense that contribution as part of HugoUtils.
+Unless explicitly stated otherwise, contributions intentionally submitted to
+HugoUtils for inclusion in the project are contributed under Apache License
+2.0.
 
-You retain copyright to your own contribution unless otherwise agreed in
-writing.
+Contributors retain copyright to their contributions. Copyright assignment is
+not required.
 
 Changes based on third-party code must preserve its license and be recorded in
-`THIRD_PARTY_NOTICES.md`.
+`THIRD_PARTY_NOTICES.md`. Fast Items remains CC0-1.0.

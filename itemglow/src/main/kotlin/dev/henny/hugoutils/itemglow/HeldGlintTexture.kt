@@ -22,10 +22,6 @@ import org.joml.Matrix4f
 import java.util.SequencedMap
 import kotlin.math.max
 
-/**
- * Vanilla-compatible colored item glint. The texture is recolored dynamically, while Minecraft's
- * own GLINT pipeline and item vertex consumer keep depth, UV projection and command ordering exact.
- */
 object HeldGlintTexture {
     private val textureId = HugoIds.id("dynamic/held_glint")
     private var texture: NativeImageBackedTexture? = null
@@ -66,12 +62,10 @@ object HeldGlintTexture {
 
     fun initialize() = Unit
 
-    /** Forces the next held-item draw to upload the freshly selected UI color. */
     fun invalidateColor() {
         lastColor = Int.MIN_VALUE
     }
 
-    /** Keeps both custom layers buffered until the normal entity-layer flush, after item depth exists. */
     @JvmStatic
     fun registerBuffers(buffers: SequencedMap<RenderLayer, BufferAllocator>): SequencedMap<RenderLayer, BufferAllocator> {
         buffers.putIfAbsent(renderLayer, BufferAllocator(renderLayer.expectedBufferSize))

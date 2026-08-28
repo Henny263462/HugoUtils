@@ -1,9 +1,5 @@
 package dev.henny.hugoutils.client.ui
 
-/**
- * Registry for feature modules that want to contribute a tab to [HugoScreen].
- * Pages are registered during mod initialization.
- */
 object ConfigPages {
     private val pages = mutableListOf<ConfigPage>()
 

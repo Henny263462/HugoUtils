@@ -21,16 +21,6 @@ body:
       description: Minecraft, Fabric Loader, Fabric API, and Java versions
     validations:
       required: true
-  - type: dropdown
-    id: access
-    attributes:
-      label: Was the affected feature unlocked?
-      options:
-        - "Yes"
-        - "No"
-        - "Unknown"
-    validations:
-      required: true
   - type: textarea
     id: expected
     attributes:

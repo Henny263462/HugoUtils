@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
-          jar="hugoutils-${version}.jar"
+          jar="HugoUtils-${version}.jar"
           test -f "fabric/build/libs/${jar}"
           cd fabric/build/libs
           sha256sum "${jar}" > ../../../SHA256SUMS.txt
@@ -51,7 +51,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           gh release create "${GITHUB_REF_NAME}" \
-            "fabric/build/libs/hugoutils-${version}.jar" \
+            "fabric/build/libs/HugoUtils-${version}.jar" \
             "SHA256SUMS.txt" \
             --verify-tag \
             --generate-notes \

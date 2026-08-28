@@ -4,6 +4,8 @@ HugoUtils is a client-side Fabric mod for Hugo SMP. It adds configurable,
 depth-tested glow effects for items and players, a custom held-item glint, and
 an integrated version of Fast Items.
 
+HugoUtils is **open source under the Apache License 2.0**.
+
 ## Features
 
 - Dropped-item glow that respects terrain depth
@@ -12,11 +14,12 @@ an integrated version of Fast Items.
 - Item filters for visual effects
 - Fast Items rendering with per-item controls
 - Named configuration profiles
-- Secure browser sign-in through Minecraft's session server
+- Optional browser sign-in for account and future Market features
+- Built-in updates from official GitHub Releases
 
-Features are enabled per Minecraft account by the Hugo SMP service. Without an
-active entitlement, the corresponding feature remains off and its controls are
-locked. Entitled features can still be enabled or disabled locally.
+Local visual features, filters, profiles, and configuration work without an
+account, without HugoBot, and without a network connection. Login is optional
+and is not required to open or use the configuration UI.
 
 ## Requirements
 
@@ -39,12 +42,40 @@ project once it is available. Every GitHub release includes a
 
 ## Network access and privacy
 
-HugoUtils contacts `hugo.henny.dev` to retrieve feature access for the current
-Minecraft UUID. The `/login` command also contacts that service to create and
-complete a short-lived browser login challenge.
+Local HugoUtils features do not require login and do not require HugoBot.
 
-The Minecraft access token is sent only to Mojang's official session server as
-part of that verification. It is not sent to Hugo SMP or stored by the mod.
+### HugoBot
+
+The separate HugoBot service at `hugo.henny.dev` may be used for:
+
+- authentication;
+- account functionality;
+- Market;
+- future server-backed functionality.
+
+The `/login` command contacts HugoBot to create and complete a short-lived
+browser login challenge. This license does not automatically cover HugoBot.
+
+Market features may require network access and authentication. Market
+authorization is enforced by HugoBot, not by local client checks.
+
+### GitHub
+
+When update checking is enabled, HugoUtils contacts GitHub for:
+
+- official release update checks;
+- release downloads;
+- checksum downloads.
+
+Update checking can be disabled in the Updates settings. Updates are never
+delivered by HugoBot.
+
+### Mojang
+
+The `/login` flow sends the Minecraft access token only to Mojang's official
+session server. That token is not sent to HugoBot, written to disk, or stored
+in logs.
+
 There is no analytics or advertising code.
 
 ## Building
@@ -66,7 +97,7 @@ The Gradle wrapper is included in the repository.
 
 ## Project structure
 
-- `core`: configuration, UI, access checks, and shared rendering code
+- `core`: configuration, UI, optional HugoBot clients, updates, and shared rendering code
 - `itemglow`: dropped- and held-item effects
 - `playerglow`: player outline rendering
 - `fastitems`: adapted Fast Items implementation
@@ -77,21 +108,28 @@ The Gradle wrapper is included in the repository.
 See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Security
 issues should be reported according to [SECURITY.md](SECURITY.md).
 
+Forks, issues, branches, and pull requests are welcome.
+
 ## License
 
-HugoUtils is source-available under the
-[HugoUtils Source Available License 1.0](LICENSE.txt). It is not an Open Source
-license as defined by the Open Source Initiative.
+HugoUtils is open source under the [Apache License 2.0](LICENSE.txt).
 
-You may view the source, modify it for personal private use, and compile and
-use original or privately modified versions. Redistribution of original or
-modified HugoUtils is prohibited without prior written permission from the
-HugoUtils copyright holders.
+Subject to Apache-2.0, you may:
 
-Portions derived from Fast Items remain licensed under CC0 1.0 Universal and
-are not restricted by the HugoUtils license where CC0 applies. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- use;
+- modify;
+- compile;
+- fork;
+- redistribute;
+- create derivative projects;
+- submit pull requests.
 
-Previous HugoUtils releases that were already published under the MIT License
-remain MIT licensed. This license does not apply retroactively to those
-releases.
+Derivative projects should use their own primary name and branding. See
+[TRADEMARKS.md](TRADEMARKS.md) for branding guidance. That policy does not
+modify the rights Apache-2.0 grants to the source code.
+
+Portions derived from Fast Items remain licensed under CC0-1.0. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Do not treat Fast Items as
+Apache-2.0 licensed.
+
+The separate HugoBot backend is not automatically covered by this license.

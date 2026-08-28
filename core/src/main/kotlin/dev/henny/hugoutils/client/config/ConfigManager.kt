@@ -193,6 +193,12 @@ object ConfigManager {
         value.heldItemGlow?.let(config.heldItemGlow::copyFrom)
         value.playerGlow?.let(config.playerGlow::copyFrom)
         value.heldGlint?.let(config.heldGlint::copyFrom)
+        if (tree.has("checkUpdatesAutomatically")) {
+            config.checkUpdatesAutomatically = value.checkUpdatesAutomatically
+        }
+        if (tree.has("includePrereleases")) {
+            config.includePrereleases = value.includePrereleases
+        }
         val dropped = tree.getAsJsonObject("droppedItemGlow")
         val held = tree.getAsJsonObject("heldItemGlow")
         val player = tree.getAsJsonObject("playerGlow")

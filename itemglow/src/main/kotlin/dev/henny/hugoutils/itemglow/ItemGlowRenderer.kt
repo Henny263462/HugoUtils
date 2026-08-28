@@ -1,7 +1,5 @@
 package dev.henny.hugoutils.itemglow
 
-import dev.henny.hugoutils.client.access.AccessFeature
-import dev.henny.hugoutils.client.access.FeatureAccessManager
 import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.config.GlintStyle
 import dev.henny.hugoutils.client.config.GlowStyle
@@ -27,9 +25,7 @@ object ItemGlowRenderer {
     fun applyDroppedOutline(state: ItemEntityRenderState) {
         val style = ConfigManager.config.droppedItemGlow
         val item = (state as? ItemGlowItemHolder)?.`hugoutils$getGlowItem`()
-        if (FeatureAccessManager.has(AccessFeature.DROPPED_ITEM_GLOW) &&
-            style.enabled && !state.itemRenderState.isEmpty && ItemGlowFilter.allows(style.filter, item)
-        ) {
+        if (style.enabled && !state.itemRenderState.isEmpty && ItemGlowFilter.allows(style.filter, item)) {
             state.outlineColor = style.outlineArgb()
         }
     }
@@ -37,9 +33,7 @@ object ItemGlowRenderer {
     @JvmStatic
     fun applyHeldGlint(stack: ItemStack, itemState: ItemRenderState, spectator: Boolean) {
         val glint = ConfigManager.config.heldGlint
-        if (!FeatureAccessManager.has(AccessFeature.HELD_GLINT) ||
-            !glint.enabled || spectator || stack.isEmpty || itemState.isEmpty || !ItemGlowFilter.allows(glint.filter, stack)
-        ) {
+        if (!glint.enabled || spectator || stack.isEmpty || itemState.isEmpty || !ItemGlowFilter.allows(glint.filter, stack)) {
             return
         }
         val accessor = itemState as ItemRenderStateAccessor
@@ -60,8 +54,6 @@ object ItemGlowRenderer {
         }
     }
 
-    // Kontext des gerade rendernden Hand-Slots, gesetzt von den Held-Mixins,
-    // damit der Inject in ItemRenderState.render weiß, welches Item gemeint ist.
     private var heldContextStack: ItemStack? = null
     private var heldContextSpectator: Boolean = false
     private var customGlintRenderActive = false
@@ -72,8 +64,7 @@ object ItemGlowRenderer {
             displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND ||
             displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND
         val style = ConfigManager.config.heldGlint
-        customGlintRenderActive = FeatureAccessManager.has(AccessFeature.HELD_GLINT) &&
-            held && glint == ItemRenderState.Glint.SPECIAL && style.enabled &&
+        customGlintRenderActive = held && glint == ItemRenderState.Glint.SPECIAL && style.enabled &&
             (style.mode() == GlintStyle.Mode.CUSTOM || style.mode() == GlintStyle.Mode.RAINBOW)
     }
 
@@ -104,15 +95,12 @@ object ItemGlowRenderer {
         return outlineColor
     }
 
-    /** Keeps the actual item fully lit whenever its configured glow is active. */
     @JvmStatic
     fun overrideGlowLight(light: Int): Int {
         val held = heldContextStack
         if (held != null) {
             val style = ConfigManager.config.heldItemGlow
-            if (FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) &&
-                !heldContextSpectator && style.enabled && !held.isEmpty && ItemGlowFilter.allows(style.filter, held)
-            ) {
+            if (!heldContextSpectator && style.enabled && !held.isEmpty && ItemGlowFilter.allows(style.filter, held)) {
                 return LightmapTextureManager.MAX_LIGHT_COORDINATE
             }
         }
@@ -144,9 +132,7 @@ object ItemGlowRenderer {
         spectator: Boolean
     ) {
         val glow = ConfigManager.config.heldItemGlow
-        if (!FeatureAccessManager.has(AccessFeature.HELD_ITEM_GLOW) ||
-            spectator || stack.isEmpty || itemState.isEmpty || !glow.enabled || !ItemGlowFilter.allows(glow.filter, stack)
-        ) {
+        if (spectator || stack.isEmpty || itemState.isEmpty || !glow.enabled || !ItemGlowFilter.allows(glow.filter, stack)) {
             return
         }
         emitGlowPass(itemState, matrices, queue, light, overlay, glow)
@@ -166,7 +152,6 @@ object ItemGlowRenderer {
         val leftHand = accessor.`hugoutils$getDisplayContext`().isLeftHand
         val glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE
 
-        // Mehrere kreisförmige Samples überlagern sich zum weichen Vanilla-ähnlichen Rand.
         val color = style.glowArgb(0.3f)
         for (index in 0 until layerCount) {
             val layer = layers[index]

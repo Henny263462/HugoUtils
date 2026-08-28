@@ -53,7 +53,7 @@ jobs:
         with:
           name: hugoutils-${{ runner.os }}
           path: |
-            fabric/build/libs/hugoutils-*.jar
-            !fabric/build/libs/hugoutils-*-sources.jar
+            fabric/build/libs/HugoUtils-*.jar
+            !fabric/build/libs/HugoUtils-*-sources.jar
           if-no-files-found: error
           retention-days: 14

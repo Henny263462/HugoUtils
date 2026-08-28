@@ -12,7 +12,6 @@ import net.minecraft.client.render.RenderSetup
 import net.minecraft.client.render.VertexFormats
 import net.minecraft.util.Identifier
 
-/** A depth-tested player silhouette which can never render through world geometry. */
 object PlayerGlowRenderLayer {
     private val pipeline: RenderPipeline = RenderPipelines.register(
         RenderPipeline.builder(

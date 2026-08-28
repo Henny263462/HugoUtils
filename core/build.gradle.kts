@@ -18,6 +18,8 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${rootProject.property("loader_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${rootProject.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${rootProject.property("fabric_version")}")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }
 
 tasks.processResources {
@@ -39,6 +41,10 @@ tasks.processResources {
 
 java {
     withSourcesJar()
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 publishing {
