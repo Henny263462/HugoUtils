@@ -3,8 +3,6 @@ package cn.noryea.fastitems.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import dev.henny.hugoutils.client.access.AccessFeature;
-import dev.henny.hugoutils.client.access.FeatureAccessManager;
 import dev.henny.hugoutils.client.config.ConfigManager;
 import dev.henny.hugoutils.client.config.ConfigSection;
 import dev.henny.hugoutils.client.config.ItemFilter;
@@ -19,7 +17,7 @@ public class FastItemsConfig {
     public static final ItemFilter filter = new ItemFilter();
 
     public static boolean isActive() {
-        return enable && FeatureAccessManager.has(AccessFeature.FASTITEMS);
+        return enable;
     }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -43,7 +41,6 @@ public class FastItemsConfig {
     }
 
     public static void load() {
-        // Wird zentral durch ConfigManager geladen.
     }
 
     public static void save() {

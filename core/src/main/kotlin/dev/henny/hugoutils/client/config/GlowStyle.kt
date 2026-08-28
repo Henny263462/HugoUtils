@@ -53,7 +53,6 @@ class GlowStyle : HsvColor {
         return ColorHelper.getArgb(alpha, c[0], c[1], c[2])
     }
 
-    /** Color used by Minecraft's native entity-outline framebuffer. */
     fun outlineArgb(): Int {
         val c = rgb()
         val alpha = (opacity * 255f).toInt().coerceIn(0, 255)

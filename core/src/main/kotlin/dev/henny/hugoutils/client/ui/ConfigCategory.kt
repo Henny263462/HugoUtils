@@ -7,6 +7,7 @@ enum class ConfigCategory(
 ) {
     VISUALS("visuals", "Visuals", true),
     PROFILES("profiles", "Profile", true),
+    UPDATES("updates", "Updates", true),
     MARKET("market", "Market", false),
     CHAT("chat", "Chat", false);
 }

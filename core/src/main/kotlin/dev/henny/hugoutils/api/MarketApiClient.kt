@@ -1,0 +1,5 @@
+package dev.henny.hugoutils.api
+
+class MarketApiClient {
+    fun isConfigured(): Boolean = false
+}

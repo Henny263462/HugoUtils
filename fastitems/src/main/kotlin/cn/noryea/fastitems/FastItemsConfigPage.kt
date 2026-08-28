@@ -1,8 +1,6 @@
 package cn.noryea.fastitems
 
 import cn.noryea.fastitems.config.FastItemsConfig
-import dev.henny.hugoutils.client.access.AccessFeature
-import dev.henny.hugoutils.client.access.FeatureAccessManager
 import dev.henny.hugoutils.client.ui.ConfigCategory
 import dev.henny.hugoutils.client.ui.ConfigPage
 import dev.henny.hugoutils.client.ui.HugoTheme
@@ -103,7 +101,6 @@ class FastItemsConfigPage : ConfigPage {
         lastMouseY = mouseY.toDouble()
         val font = MinecraftClient.getInstance().textRenderer
         tooltip = null
-        val hasAccess = FeatureAccessManager.has(AccessFeature.FASTITEMS)
         enableAnim = UiDraw.lerp(enableAnim, if (FastItemsConfig.isActive()) 1f else 0f, 0.25f)
 
         UiDraw.panel(context, header.x, header.y, header.w, layoutHeight(), HugoTheme.card, HugoTheme.cardBorder)
@@ -119,7 +116,7 @@ class FastItemsConfigPage : ConfigPage {
 
         if (expanded) {
             for (toggle in toggles) {
-                toggle.anim = UiDraw.lerp(toggle.anim, if (hasAccess && toggle.value) 1f else 0f, 0.25f)
+                toggle.anim = UiDraw.lerp(toggle.anim, if (toggle.value) 1f else 0f, 0.25f)
                 context.drawText(font, toggle.label, toggle.rect.x, toggle.rect.y + 5, HugoTheme.text, false)
                 drawToggle(context, toggle.switch, toggle.anim)
             }
@@ -129,20 +126,6 @@ class FastItemsConfigPage : ConfigPage {
                 if (hovered) HugoTheme.accent else HugoTheme.cardBorder)
             context.drawText(font, "Items / Blöcke auswählen…", filterButton.x + 7, filterButton.y + 7,
                 if (hovered) HugoTheme.text else HugoTheme.textMuted, false)
-        }
-
-        if (!hasAccess) {
-            val locked = UiRect(header.x, header.y, header.w, layoutHeight())
-            UiDraw.fill(context, locked, 0xB010131A.toInt())
-            val label = "Nicht freigeschaltet"
-            context.drawText(
-                font,
-                label,
-                header.right() - font.getWidth(label) - 10,
-                header.y + 10,
-                HugoTheme.textDim,
-                false
-            )
         }
 
         tooltip?.let { text ->
@@ -171,14 +154,7 @@ class FastItemsConfigPage : ConfigPage {
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {
-        val hasAccess = FeatureAccessManager.has(AccessFeature.FASTITEMS)
-        if (!hasAccess &&
-            UiRect(header.x, header.y, header.w, layoutHeight()).contains(mouseX, mouseY)
-        ) {
-            return true
-        }
         if (headerToggle.contains(mouseX, mouseY)) {
-            if (!hasAccess) return true
             FastItemsConfig.enable = !FastItemsConfig.enable
             persist()
             return true

@@ -5,7 +5,7 @@ plugins {
 }
 
 base {
-    archivesName.set("hugoutils")
+    archivesName.set("HugoUtils")
 }
 
 architectury {

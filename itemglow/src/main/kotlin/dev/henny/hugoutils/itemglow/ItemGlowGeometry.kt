@@ -31,7 +31,6 @@ object ItemGlowGeometry {
         return floatArrayOf(minX, minY, minZ, maxX, maxY, maxZ)
     }
 
-    /** Emits the complete model geometry; depth removes the center after screen-space expansion. */
     fun emit(
         consumer: VertexConsumer,
         entry: MatrixStack.Entry,

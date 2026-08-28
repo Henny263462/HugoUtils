@@ -1,4 +1,4 @@
-package dev.henny.hugoutils.client.access
+package dev.henny.hugoutils.api
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -13,9 +13,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-object WebLoginClient {
-    private const val LOGIN_URL = "https://hugo.henny.dev/auth/client-login"
-    private const val JOIN_URL = "https://sessionserver.mojang.com/session/minecraft/join"
+object AuthApiClient {
     private val codePattern = Regex("^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$")
     private val busy = AtomicBoolean(false)
     private val http = HttpClient.newBuilder()
@@ -23,7 +21,7 @@ object WebLoginClient {
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build()
     private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "HugoUtils-WebLogin").apply { isDaemon = true }
+        Thread(runnable, "HugoUtils-Auth").apply { isDaemon = true }
     }
 
     @JvmStatic
@@ -59,7 +57,7 @@ object WebLoginClient {
         if (accessToken.isBlank()) throw LoginFailure("Deine Minecraft-Sitzung hat keinen gültigen Zugriffstoken.")
 
         val challenge = postJson(
-            LOGIN_URL,
+            ApiConfig.CLIENT_LOGIN_URL,
             JsonObject().apply {
                 addProperty("action", "challenge")
                 addProperty("code", code)
@@ -73,7 +71,7 @@ object WebLoginClient {
             ?: throw LoginFailure("Der Login-Dienst hat ungültig geantwortet.")
 
         val join = postJson(
-            JOIN_URL,
+            ApiConfig.MOJANG_SESSION_JOIN_URL,
             JsonObject().apply {
                 addProperty("accessToken", accessToken)
                 addProperty("selectedProfile", uuid.toString().replace("-", ""))
@@ -86,7 +84,7 @@ object WebLoginClient {
 
         repeat(4) { attempt ->
             val complete = postJson(
-                LOGIN_URL,
+                ApiConfig.CLIENT_LOGIN_URL,
                 JsonObject().apply {
                     addProperty("action", "complete")
                     addProperty("code", code)
@@ -103,7 +101,7 @@ object WebLoginClient {
             .timeout(Duration.ofSeconds(10))
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
-            .header("User-Agent", "HugoUtils")
+            .header("User-Agent", ApiConfig.USER_AGENT)
             .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
             .build()
         return http.send(request, HttpResponse.BodyHandlers.ofString())

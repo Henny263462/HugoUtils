@@ -18,7 +18,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Alpha-masked, translucent color pass built from an item's actual atlas texture. */
 object ItemGlowRenderLayer {
     private val directions = Array(12) { index ->
         val angle = index * (PI * 2.0 / 12.0)
@@ -56,7 +55,6 @@ object ItemGlowRenderLayer {
     private val layers = HashMap<LayerKey, RenderLayer>()
 
     fun initialize() {
-        // Accessing the object performs pipeline registration.
     }
 
     @Suppress("CAST_NEVER_SUCCEEDS")
