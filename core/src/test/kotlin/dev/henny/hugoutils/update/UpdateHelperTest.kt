@@ -21,12 +21,13 @@ class UpdateHelperTest {
                 "--staged", "/tmp/HugoUtils-1.1.0.jar",
                 "--destination", "/mods/HugoUtils-1.1.0.jar",
                 "--sha256", "abc",
-                "--restart"
+                "--restart-file", "/tmp/restart.cmd"
             )
         )
         assertEquals(0L, parsed.pid)
         assertEquals("HugoUtils-1.0.0.jar", parsed.target.fileName.toString())
         assertTrue(parsed.restart)
+        assertEquals("restart.cmd", parsed.restartFile.fileName.toString())
     }
 
     @Test

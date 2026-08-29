@@ -265,12 +265,8 @@ object UpdateManager {
             )
             val restartLaunch = if (restart) restartCommand() else null
             if (restartLaunch != null) {
-                command += "--restart"
-            }
-            val log = stagingDir().resolve("update-helper.log")
-            val process = startHelperProcess(command, log, restartLaunch != null)
-            if (restartLaunch != null) {
-                process.outputStream.bufferedWriter().use { writer ->
+                val restartFile = stagingDir().resolve("restart.cmd")
+                Files.newBufferedWriter(restartFile).use { writer ->
                     writer.append("workdir=").append(restartLaunch.workDir.toAbsolutePath().toString()).append('\n')
                     writer.append("command=").append(restartLaunch.command).append('\n')
                     restartLaunch.arguments.forEach { arg ->
@@ -278,7 +274,10 @@ object UpdateManager {
                     }
                     writer.append("END\n")
                 }
+                command += listOf("--restart-file", restartFile.toAbsolutePath().toString())
             }
+            val log = stagingDir().resolve("update-helper.log")
+            startHelperProcess(command, log)
             true
         } catch (error: Exception) {
             helperSpawned.set(false)
@@ -288,17 +287,40 @@ object UpdateManager {
         }
     }
 
-    private fun startHelperProcess(command: List<String>, log: Path, keepStdin: Boolean): Process {
+    private fun startHelperProcess(command: List<String>, log: Path): Process {
         val windows = System.getProperty("os.name").lowercase().contains("win")
-        val launched = if (windows && !keepStdin) {
-            mutableListOf("cmd.exe", "/c", "start", "", "/b") + command
+        val builder = if (windows) {
+            // Launch via a short-lived cmd script so paths with spaces stay intact and the
+            // helper is fully detached from the Minecraft process tree.
+            val script = stagingDir().resolve("run-update-helper.cmd")
+            val quoted = command.joinToString(" ") { arg -> "\"${arg.replace("\"", "\"\"")}\"" }
+            val logPath = log.toAbsolutePath().toString().replace("\"", "\"\"")
+            Files.writeString(
+                script,
+                """
+                @echo off
+                cd /d "${stagingDir().toAbsolutePath().toString().replace("\"", "\"\"")}"
+                $quoted >> "$logPath" 2>&1
+                """.trimIndent() + "\n"
+            )
+            ProcessBuilder(
+                "cmd.exe",
+                "/c",
+                "start",
+                "HugoUtilsUpdate",
+                "/min",
+                "cmd.exe",
+                "/c",
+                script.toAbsolutePath().toString()
+            )
         } else {
-            command
+            ProcessBuilder(command).also {
+                it.redirectOutput(log.toFile())
+                it.redirectError(log.toFile())
+                it.redirectInput(ProcessBuilder.Redirect.DISCARD)
+            }
         }
-        val builder = ProcessBuilder(launched)
         builder.directory(stagingDir().toFile())
-        builder.redirectOutput(log.toFile())
-        builder.redirectError(log.toFile())
         return builder.start()
     }
 
@@ -306,21 +328,18 @@ object UpdateManager {
         val staging = stagingDir()
         Files.createDirectories(staging)
         val helper = staging.resolve("update-helper.jar")
-        val source = helperSource()
-        Files.copy(source, helper, StandardCopyOption.REPLACE_EXISTING)
-        return helper
-    }
-
-    private fun helperSource(): Path {
-        val container = FabricLoader.getInstance().getModContainer("hugoutils-core").orElse(null)
-            ?: throw UpdateFailure("HugoUtils core could not be located.")
-        val origin = container.origin.paths.firstOrNull { Files.exists(it) }
-            ?: throw UpdateFailure("HugoUtils core could not be located.")
-        if (Files.isRegularFile(origin)) return origin
-        val nested = FabricLoader.getInstance().getModContainer(HugoIds.MOD_ID).orElse(null)
-            ?.origin?.paths?.firstOrNull { Files.isRegularFile(it) && it.fileName.toString().endsWith(".jar") }
-        if (nested != null) return nested
-        throw UpdateFailure("The update helper could not be copied.")
+        val preferred = ArrayList<Path>()
+        FabricLoader.getInstance().getModContainer("hugoutils-core").ifPresent { container ->
+            preferred += container.origin.paths
+        }
+        val outer = currentJarPath()
+            ?: FabricLoader.getInstance().getModContainer(HugoIds.MOD_ID).orElse(null)
+                ?.origin?.paths?.firstOrNull { Files.isRegularFile(it) && it.fileName.toString().endsWith(".jar") }
+        return try {
+            HelperJarExtractor.materialize(helper, preferred, outer)
+        } catch (error: Exception) {
+            throw UpdateFailure(error.message ?: "The update helper could not be copied.")
+        }
     }
 
     private fun restartCommand(): RestartLaunch? {

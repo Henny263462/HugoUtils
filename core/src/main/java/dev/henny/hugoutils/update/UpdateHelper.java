@@ -30,7 +30,12 @@ public final class UpdateHelper {
 
     public static int run(String[] args) throws Exception {
         Arguments parsed = Arguments.parse(args);
-        RestartCommand restart = parsed.restart ? RestartCommand.readStdin() : null;
+        RestartCommand restart = null;
+        if (parsed.restartFile != null) {
+            restart = RestartCommand.readFile(parsed.restartFile);
+        } else if (parsed.restart) {
+            restart = RestartCommand.readStdin();
+        }
         waitForProcess(parsed.pid);
         install(parsed.target, parsed.staged, parsed.destination, parsed.sha256);
         if (restart != null) {
@@ -177,14 +182,16 @@ public final class UpdateHelper {
         final Path destination;
         final String sha256;
         final boolean restart;
+        final Path restartFile;
 
-        Arguments(long pid, Path target, Path staged, Path destination, String sha256, boolean restart) {
+        Arguments(long pid, Path target, Path staged, Path destination, String sha256, boolean restart, Path restartFile) {
             this.pid = pid;
             this.target = target;
             this.staged = staged;
             this.destination = destination;
             this.sha256 = sha256;
             this.restart = restart;
+            this.restartFile = restartFile;
         }
 
         static Arguments parse(String[] args) {
@@ -194,6 +201,7 @@ public final class UpdateHelper {
             Path destination = null;
             String sha256 = null;
             boolean restart = false;
+            Path restartFile = null;
             for (int i = 0; i < args.length; i++) {
                 String flag = args[i];
                 if ("--restart".equals(flag)) {
@@ -210,6 +218,10 @@ public final class UpdateHelper {
                     case "--staged" -> staged = Path.of(value);
                     case "--destination" -> destination = Path.of(value);
                     case "--sha256" -> sha256 = value;
+                    case "--restart-file" -> {
+                        restartFile = Path.of(value);
+                        restart = true;
+                    }
                     default -> throw new IllegalArgumentException("unknown argument");
                 }
             }
@@ -219,7 +231,7 @@ public final class UpdateHelper {
             if (destination == null) {
                 destination = target;
             }
-            return new Arguments(pid, target, staged, destination, sha256, restart);
+            return new Arguments(pid, target, staged, destination, sha256, restart, restartFile);
         }
     }
 
@@ -234,25 +246,35 @@ public final class UpdateHelper {
             this.arguments = arguments;
         }
 
+        static RestartCommand readFile(Path path) throws IOException {
+            try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+                return read(reader);
+            }
+        }
+
         static RestartCommand readStdin() throws IOException {
-            Path workDir = null;
-            String command = null;
-            List<String> arguments = new ArrayList<>();
             try (BufferedReader reader = new BufferedReader(
                 new java.io.InputStreamReader(System.in, StandardCharsets.UTF_8)
             )) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.equals("END")) {
-                        break;
-                    }
-                    if (line.startsWith("workdir=")) {
-                        workDir = Path.of(line.substring("workdir=".length()));
-                    } else if (line.startsWith("command=")) {
-                        command = line.substring("command=".length());
-                    } else if (line.startsWith("arg=")) {
-                        arguments.add(line.substring("arg=".length()));
-                    }
+                return read(reader);
+            }
+        }
+
+        private static RestartCommand read(BufferedReader reader) throws IOException {
+            Path workDir = null;
+            String command = null;
+            List<String> arguments = new ArrayList<>();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.equals("END")) {
+                    break;
+                }
+                if (line.startsWith("workdir=")) {
+                    workDir = Path.of(line.substring("workdir=".length()));
+                } else if (line.startsWith("command=")) {
+                    command = line.substring("command=".length());
+                } else if (line.startsWith("arg=")) {
+                    arguments.add(line.substring("arg=".length()));
                 }
             }
             if (workDir == null || command == null || command.isBlank()) {
