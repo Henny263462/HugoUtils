@@ -46,6 +46,8 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
     private var content = UiRect(0, 0, 0, 0)
     private var scissor = UiRect(0, 0, 0, 0)
     private val navHits = ArrayList<Pair<ConfigCategory, UiRect>>()
+    private val footerHits = ArrayList<Pair<ConfigCategory, UiRect>>()
+    private var previousCategory = ConfigCategory.VISUALS
 
     private var droppedCard = GlowCardLayout()
     private var heldGlowCard = GlowCardLayout()
@@ -141,9 +143,17 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
 
         navHits.clear()
         var navY = sidebar.y + 36
-        for (entry in ConfigCategory.entries) {
+        for (entry in ConfigCategory.navEntries) {
             navHits += entry to UiRect(sidebar.x + 8, navY - 4, sidebar.w - 16, 18)
             navY += 20
+        }
+
+        footerHits.clear()
+        // Version sits at bottom - 16; footer dropdowns stack above it.
+        var footerY = sidebar.bottom() - 16 - 4 - ConfigCategory.footerEntries.size * 20
+        for (entry in ConfigCategory.footerEntries) {
+            footerHits += entry to UiRect(sidebar.x + 8, footerY, sidebar.w - 16, 18)
+            footerY += 20
         }
 
         val compact = height < 300
@@ -307,27 +317,10 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         context.drawText(textRenderer, HugoIds.DISPLAY_NAME, sidebar.x + 12, sidebar.y + 12, HugoTheme.text, false)
 
         for ((entry, hit) in navHits) {
-            val hovered = hit.contains(mouseX.toDouble(), mouseY.toDouble())
-            val selected = entry == category
-            if (selected) {
-                UiDraw.fill(context, hit, HugoTheme.accentSoft)
-                context.fill(hit.x, hit.y, hit.x + 2, hit.bottom(), HugoTheme.accent)
-            } else if (hovered && entry.available) {
-                UiDraw.fill(context, hit, 0x18FFFFFF)
-            }
-            val color = when {
-                selected -> HugoTheme.text
-                entry.available -> if (hovered) HugoTheme.text else HugoTheme.textMuted
-                else -> HugoTheme.comingSoon
-            }
-            context.drawText(
-                textRenderer,
-                UiDraw.ellipsize(textRenderer, entry.title, hit.w - 12),
-                hit.x + 8,
-                hit.y + 5,
-                color,
-                false
-            )
+            drawNavEntry(context, entry, hit, mouseX, mouseY, dropdown = false)
+        }
+        for ((entry, hit) in footerHits) {
+            drawNavEntry(context, entry, hit, mouseX, mouseY, dropdown = true)
         }
 
         val version = FabricLoader.getInstance()
@@ -343,6 +336,53 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
             if (UpdateManager.hasUpdate()) HugoTheme.accent else HugoTheme.textDim,
             false
         )
+    }
+
+    private fun drawNavEntry(
+        context: DrawContext,
+        entry: ConfigCategory,
+        hit: UiRect,
+        mouseX: Int,
+        mouseY: Int,
+        dropdown: Boolean
+    ) {
+        val hovered = hit.contains(mouseX.toDouble(), mouseY.toDouble())
+        val selected = entry == category
+        if (selected) {
+            UiDraw.fill(context, hit, HugoTheme.accentSoft)
+            context.fill(hit.x, hit.y, hit.x + 2, hit.bottom(), HugoTheme.accent)
+        } else if (hovered && entry.available) {
+            UiDraw.fill(context, hit, 0x18FFFFFF)
+        }
+        val color = when {
+            selected -> HugoTheme.text
+            entry.available -> if (hovered) HugoTheme.text else HugoTheme.textMuted
+            else -> HugoTheme.comingSoon
+        }
+        if (dropdown) {
+            val chevron = if (selected) "▾" else "▸"
+            context.drawText(textRenderer, chevron, hit.x + 6, hit.y + 5, HugoTheme.textMuted, false)
+            context.drawText(
+                textRenderer,
+                UiDraw.ellipsize(textRenderer, entry.title, hit.w - 22),
+                hit.x + 16,
+                hit.y + 5,
+                color,
+                false
+            )
+        } else {
+            context.drawText(
+                textRenderer,
+                UiDraw.ellipsize(textRenderer, entry.title, hit.w - 12),
+                hit.x + 8,
+                hit.y + 5,
+                color,
+                false
+            )
+        }
+        if (dropdown && entry == ConfigCategory.UPDATES && UpdateManager.hasUpdate() && !selected) {
+            context.fill(hit.right() - 8, hit.y + 7, hit.right() - 4, hit.y + 11, HugoTheme.accent)
+        }
     }
 
     private fun drawContent(context: DrawContext, mouseX: Int, mouseY: Int) {
@@ -544,7 +584,25 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         for ((entry, hit) in navHits) {
             if (hit.contains(mx, my)) {
                 if (entry.available && entry != category) {
+                    previousCategory = if (category.footer) previousCategory else category
                     category = entry
+                    pageAnim = 0f
+                    scroll = 0
+                }
+                unfocusAll()
+                return true
+            }
+        }
+        for ((entry, hit) in footerHits) {
+            if (hit.contains(mx, my)) {
+                if (entry.available) {
+                    if (entry == category) {
+                        // Collapse dropdown back to the previous main tab.
+                        category = previousCategory.takeUnless { it.footer } ?: ConfigCategory.VISUALS
+                    } else {
+                        if (!category.footer) previousCategory = category
+                        category = entry
+                    }
                     pageAnim = 0f
                     scroll = 0
                 }
