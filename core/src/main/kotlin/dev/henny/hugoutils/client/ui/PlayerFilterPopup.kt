@@ -104,7 +104,7 @@ class PlayerFilterPopup(
             if (addHovered) HugoTheme.accent else HugoTheme.cardBorder)
         context.drawText(font, "Add", add.x + (add.w - font.getWidth("Add")) / 2, add.y + 5, HugoTheme.textMuted, false)
 
-        context.drawText(font, "Online / ausgewählt — Farbe antippen", listArea.x, listArea.y - 12, HugoTheme.textMuted, false)
+        context.drawText(font, "Online — antippen zum Auswählen; Farbe nur bei Auswahl", listArea.x, listArea.y - 12, HugoTheme.textMuted, false)
 
         playerHits.clear()
         val rows = buildRows()
@@ -124,13 +124,18 @@ class PlayerFilterPopup(
         } else {
             for (row in rows) {
                 val rect = UiRect(listArea.x + 2, y, listArea.w - 4, ROW_H)
+                val check = UiRect(rect.x + 4, rect.y + 5, 10, 10)
+                val swatch = if (row.entry != null) {
+                    UiRect(check.right() + 5, rect.y + 4, 12, 12)
+                } else {
+                    UiRect(0, 0, 0, 0)
+                }
+                val toggle = UiRect(rect.x, rect.y, rect.w, ROW_H)
                 if (rect.bottom() >= listArea.y && rect.y <= listArea.bottom()) {
-                    drawPlayerRow(context, font, row, rect, style)
+                    drawPlayerRow(context, font, row, rect, check, swatch, style)
                 }
                 if (rect.bottom() > listArea.y && rect.y < listArea.bottom()) {
-                    val swatch = UiRect(rect.x + 4, rect.y + 4, 12, 12)
-                    val toggle = UiRect(swatch.right() + 4, rect.y, rect.w - 22, ROW_H)
-                    playerHits += PlayerHit(row.name, row.uuid, row.entry, rect, swatch, toggle)
+                    playerHits += PlayerHit(row.name, row.uuid, row.entry, rect, check, swatch, toggle)
                 }
                 y += ROW_H
             }
@@ -191,23 +196,18 @@ class PlayerFilterPopup(
         }
 
         playerHits.firstOrNull { it.row.contains(mouseX, mouseY) }?.let { hit ->
-            if (hit.swatch.contains(mouseX, mouseY)) {
-                ensureListed(hit.name, hit.uuid)
-                editingKey = filter.find(hit.name, hit.uuid)?.let { entryKey(it) }
+            // Color swatch: only for already selected players — never auto-select.
+            if (hit.entry != null && hit.swatch.w > 0 && hit.swatch.contains(mouseX, mouseY)) {
+                editingKey = entryKey(hit.entry)
                 onChange()
                 return true
             }
-            if (hit.toggle.contains(mouseX, mouseY)) {
-                filter.toggle(hit.name, hit.uuid, ConfigManager.config.playerGlow)
-                val stillThere = filter.find(hit.name, hit.uuid)
-                if (stillThere == null && editingKey != null) {
-                    editingKey = null
-                } else if (stillThere != null) {
-                    editingKey = entryKey(stillThere)
-                }
-                onChange()
-                return true
-            }
+            // Checkbox / row: explicit toggle selection.
+            filter.toggle(hit.name, hit.uuid, ConfigManager.config.playerGlow)
+            val stillThere = filter.find(hit.name, hit.uuid)
+            editingKey = stillThere?.let { entryKey(it) }
+            onChange()
+            return true
         }
         return true
     }
@@ -272,6 +272,8 @@ class PlayerFilterPopup(
         font: net.minecraft.client.font.TextRenderer,
         row: Row,
         rect: UiRect,
+        check: UiRect,
+        swatch: UiRect,
         style: dev.henny.hugoutils.client.config.GlowStyle
     ) {
         val selected = row.entry != null
@@ -286,22 +288,31 @@ class PlayerFilterPopup(
             context.fill(rect.x, rect.y + 2, rect.x + 2, rect.bottom() - 2, HugoTheme.accent)
         }
 
-        val rgb = if (row.entry != null) {
-            filter.previewRgb(row.entry, style)
-        } else {
-            style.rgb()
-        }
-        val swatchColor = ColorHelper.getArgb(255, rgb[0], rgb[1], rgb[2])
-        val swatch = UiRect(rect.x + 4, rect.y + 4, 12, 12)
-        UiDraw.fill(context, swatch, swatchColor)
-        UiDraw.border(
+        UiDraw.panel(
             context,
-            swatch.x,
-            swatch.y,
-            swatch.w,
-            swatch.h,
-            if (editing) HugoTheme.accent else HugoTheme.cardBorder
+            check,
+            if (selected) HugoTheme.accentSoft else HugoTheme.inset,
+            if (selected) HugoTheme.accent else HugoTheme.cardBorder
         )
+        if (selected) {
+            context.drawText(font, "✓", check.x + 1, check.y - 1, HugoTheme.accent, false)
+        }
+
+        var textX = check.right() + 6
+        if (selected && swatch.w > 0) {
+            val rgb = filter.previewRgb(row.entry!!, style)
+            val swatchColor = ColorHelper.getArgb(255, rgb[0], rgb[1], rgb[2])
+            UiDraw.fill(context, swatch, swatchColor)
+            UiDraw.border(
+                context,
+                swatch.x,
+                swatch.y,
+                swatch.w,
+                swatch.h,
+                if (editing) HugoTheme.accent else HugoTheme.cardBorder
+            )
+            textX = swatch.right() + 6
+        }
 
         val label = row.name.ifBlank { row.uuid?.toString() ?: "?" }
         val suffix = when {
@@ -311,8 +322,8 @@ class PlayerFilterPopup(
         }
         context.drawText(
             font,
-            UiDraw.ellipsize(font, label + suffix, rect.w - 28),
-            swatch.right() + 6,
+            UiDraw.ellipsize(font, label + suffix, rect.right() - textX - 4),
+            textX,
             rect.y + 7,
             if (selected) HugoTheme.text else HugoTheme.textMuted,
             false
@@ -353,12 +364,6 @@ class PlayerFilterPopup(
         scroll = scroll.coerceIn(0, maxScroll)
     }
 
-    private fun ensureListed(name: String, uuid: UUID?) {
-        if (filter.find(name, uuid) == null) {
-            filter.toggle(name, uuid, ConfigManager.config.playerGlow)
-        }
-    }
-
     private fun addManual() {
         val value = inputText.trim()
         if (value.isBlank()) return
@@ -390,6 +395,7 @@ class PlayerFilterPopup(
         val uuid: UUID?,
         val entry: PlayerFilter.Entry?,
         val row: UiRect,
+        val check: UiRect,
         val swatch: UiRect,
         val toggle: UiRect
     )
