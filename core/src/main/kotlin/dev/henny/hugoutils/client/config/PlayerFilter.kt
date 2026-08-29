@@ -8,16 +8,19 @@ class PlayerFilter {
     var mode: String = Mode.ALL.id
     var players: MutableList<Entry> = ArrayList()
 
+    @Synchronized
     fun copyFrom(other: PlayerFilter) {
         mode = other.mode
+        val copied = synchronized(other) { other.players.map { it.copy() } }
         players.clear()
-        players.addAll(other.players.map { it.copy() })
+        players.addAll(copied)
     }
 
+    @Synchronized
     fun clamp() {
         mode = Mode.from(mode).id
         val unique = LinkedHashMap<String, Entry>()
-        players.forEach { entry ->
+        snapshot().forEach { entry ->
             entry.clamp()
             if (entry.name.isNotBlank() || parseUuid(entry.uuid) != null) {
                 unique[key(entry.name, entry.uuid)] = entry
@@ -26,6 +29,9 @@ class PlayerFilter {
         players.clear()
         players.addAll(unique.values)
     }
+
+    @Synchronized
+    fun snapshot(): List<Entry> = ArrayList(players)
 
     fun allows(name: String?, uuid: UUID?): Boolean {
         val selected = find(name, uuid) != null
@@ -36,16 +42,21 @@ class PlayerFilter {
         }
     }
 
+    @Synchronized
     fun find(name: String?, uuid: UUID?): Entry? =
-        players.firstOrNull { entry ->
+        snapshot().firstOrNull { entry ->
             (uuid != null && parseUuid(entry.uuid) == uuid) ||
                 (!name.isNullOrBlank() && entry.name.equals(name, ignoreCase = true))
         }
 
+    @Synchronized
     fun toggle(name: String, uuid: UUID?, defaultColor: GlowStyle? = null) {
         val existing = find(name, uuid)
         if (existing != null) {
-            players.remove(existing)
+            players.removeAll { entry ->
+                (uuid != null && parseUuid(entry.uuid) == uuid) ||
+                    entry.name.equals(name, ignoreCase = true)
+            }
         } else {
             val entry = Entry(name.trim(), uuid?.toString().orEmpty())
             if (defaultColor != null) {
@@ -54,6 +65,14 @@ class PlayerFilter {
                 entry.brightness = defaultColor.brightness
             }
             players += entry
+        }
+        clamp()
+    }
+
+    @Synchronized
+    fun remove(entry: Entry) {
+        players.removeAll { candidate ->
+            entryKey(candidate) == entryKey(entry)
         }
         clamp()
     }
@@ -141,6 +160,10 @@ class PlayerFilter {
 
     companion object {
         fun parseUuid(value: String): UUID? = runCatching { UUID.fromString(value) }.getOrNull()
+
+        fun entryKey(entry: Entry): String =
+            parseUuid(entry.uuid)?.toString() ?: entry.name.lowercase(Locale.ROOT)
+
         private fun key(name: String, uuid: String): String =
             parseUuid(uuid)?.toString() ?: name.lowercase(Locale.ROOT)
     }
