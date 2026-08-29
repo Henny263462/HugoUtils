@@ -7,8 +7,8 @@ enum class UpdateState {
     UPDATE_AVAILABLE,
     DOWNLOADING,
     VERIFYING,
-    READY_TO_INSTALL,
     INSTALLING,
+    PENDING_RESTART,
     ERROR
 }
 

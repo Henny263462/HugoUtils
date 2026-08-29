@@ -17,7 +17,6 @@ class UpdateConfigPage : ConfigPage {
     private var preToggle = UiRect(0, 0, 0, 0)
     private var checkButton = UiRect(0, 0, 0, 0)
     private var updateButton = UiRect(0, 0, 0, 0)
-    private var installButton = UiRect(0, 0, 0, 0)
     private var restartButton = UiRect(0, 0, 0, 0)
     private var lastMouseX = 0.0
     private var lastMouseY = 0.0
@@ -25,14 +24,13 @@ class UpdateConfigPage : ConfigPage {
     private var preAnim = if (ConfigManager.config.includePrereleases) 1f else 0f
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        frame = UiRect(x, y, width, 236)
+        frame = UiRect(x, y, width, 210)
         autoToggle = UiRect(x + width - 42, y + 86, 32, 14)
         preToggle = UiRect(x + width - 42, y + 112, 32, 14)
         val buttonW = ((width - 20 - 8) / 2).coerceAtLeast(90)
         checkButton = UiRect(x + 10, y + 140, buttonW, 22)
         updateButton = UiRect(x + 10 + buttonW + 8, y + 140, buttonW, 22)
-        installButton = UiRect(x + 10, y + 170, buttonW, 22)
-        restartButton = UiRect(x + 10 + buttonW + 8, y + 170, buttonW, 22)
+        restartButton = UiRect(x + 10, y + 170, width - 20, 22)
         return frame.h
     }
 
@@ -57,7 +55,10 @@ class UpdateConfigPage : ConfigPage {
         snapshot.installedVersion?.let { installed ->
             context.drawText(font, "Installed: v$installed", frame.x + 10, frame.y + 48, HugoTheme.textDim, false)
         }
-        if (snapshot.state == UpdateState.DOWNLOADING || snapshot.state == UpdateState.VERIFYING) {
+        if (snapshot.state == UpdateState.DOWNLOADING ||
+            snapshot.state == UpdateState.VERIFYING ||
+            snapshot.state == UpdateState.INSTALLING
+        ) {
             val bar = UiRect(frame.x + 10, frame.y + 64, frame.w - 20, 8)
             UiDraw.fill(context, bar, HugoTheme.inset)
             val fill = ((bar.w - 2) * snapshot.progress.coerceIn(0f, 1f)).roundToInt()
@@ -69,7 +70,7 @@ class UpdateConfigPage : ConfigPage {
         context.drawText(font, "Include prerelease versions", frame.x + 10, frame.y + 114, HugoTheme.text, false)
         drawToggle(context, preToggle, preAnim)
 
-        drawButton(context, checkButton, "Check for updates", true)
+        drawButton(context, checkButton, "Check", true)
         drawButton(
             context,
             updateButton,
@@ -78,20 +79,9 @@ class UpdateConfigPage : ConfigPage {
         )
         drawButton(
             context,
-            installButton,
-            "Install on Exit",
-            snapshot.state == UpdateState.READY_TO_INSTALL
-        )
-        val restartLabel = if (snapshot.state == UpdateState.READY_TO_INSTALL && !snapshot.restartSupported) {
-            "Quit & Install"
-        } else {
-            "Restart & Update"
-        }
-        drawButton(
-            context,
             restartButton,
-            restartLabel,
-            snapshot.state == UpdateState.READY_TO_INSTALL
+            "Minecraft neu starten",
+            snapshot.state == UpdateState.PENDING_RESTART
         )
     }
 
@@ -106,20 +96,16 @@ class UpdateConfigPage : ConfigPage {
             return true
         }
         if (checkButton.contains(mouseX, mouseY)) {
-            UpdateManager.checkForUpdates()
+            UpdateManager.checkForUpdates(autoApply = false)
             return true
         }
         val snapshot = UpdateManager.status()
         if (updateButton.contains(mouseX, mouseY) && snapshot.state == UpdateState.UPDATE_AVAILABLE) {
-            UpdateManager.downloadUpdate()
+            UpdateManager.downloadAndInstall()
             return true
         }
-        if (installButton.contains(mouseX, mouseY) && snapshot.state == UpdateState.READY_TO_INSTALL) {
-            UpdateManager.installOnExit()
-            return true
-        }
-        if (restartButton.contains(mouseX, mouseY) && snapshot.state == UpdateState.READY_TO_INSTALL) {
-            UpdateManager.restartAndUpdate()
+        if (restartButton.contains(mouseX, mouseY) && snapshot.state == UpdateState.PENDING_RESTART) {
+            UpdateManager.quitToApply()
             return true
         }
         return frame.contains(mouseX, mouseY)
@@ -183,15 +169,15 @@ class UpdateConfigPage : ConfigPage {
             UpdateState.UPDATE_AVAILABLE -> "Update available: ${available ?: ""}".trim()
             UpdateState.DOWNLOADING -> "Downloading update…"
             UpdateState.VERIFYING -> "Verifying checksum…"
-            UpdateState.READY_TO_INSTALL -> "Ready to install ${available ?: "the update"}"
             UpdateState.INSTALLING -> "Installing update…"
+            UpdateState.PENDING_RESTART -> "Restart Minecraft to load ${available ?: "the update"}"
             UpdateState.ERROR -> "Update check failed"
         }
     }
 
     private fun statusColor(state: UpdateState): Int = when (state) {
         UpdateState.ERROR -> HugoTheme.danger
-        UpdateState.UPDATE_AVAILABLE, UpdateState.READY_TO_INSTALL -> HugoTheme.accent
+        UpdateState.UPDATE_AVAILABLE, UpdateState.PENDING_RESTART -> HugoTheme.accent
         UpdateState.UP_TO_DATE -> HugoTheme.success
         else -> HugoTheme.textMuted
     }
