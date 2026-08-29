@@ -9,6 +9,8 @@ interface ConfigPopup {
     fun layout(screenWidth: Int, screenHeight: Int)
     fun render(context: DrawContext, mouseX: Int, mouseY: Int)
     fun mouseClicked(mouseX: Double, mouseY: Double): Boolean
+    fun mouseDragged(mouseX: Double, mouseY: Double): Boolean = false
+    fun mouseReleased() {}
     fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean = false
     fun keyPressed(input: KeyInput): Boolean = false
     fun charTyped(input: CharInput): Boolean = false

@@ -1,7 +1,6 @@
 package dev.henny.hugoutils.playerglow
 
 import dev.henny.hugoutils.client.config.ConfigManager
-import dev.henny.hugoutils.client.config.GlowStyle
 import net.minecraft.client.model.Model
 import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.client.render.OverlayTexture
@@ -16,9 +15,12 @@ import net.minecraft.component.DataComponentTypes
 import net.minecraft.component.type.DyedColorComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
+import java.util.IdentityHashMap
 import java.util.UUID
 
 object PlayerGlowRenderer {
+    private val activeGlowColors = IdentityHashMap<PlayerEntityRenderState, Int>()
+
     fun initialize() = Unit
 
     @JvmStatic
@@ -27,7 +29,10 @@ object PlayerGlowRenderer {
         if (style.enabled && !state.spectator && !state.invisible && !state.invisibleToPlayer &&
             style.playerFilter.allows(name, uuid)
         ) {
-            state.outlineColor = style.outlineArgb()
+            state.outlineColor = style.playerFilter.outlineArgb(name, uuid, style)
+            activeGlowColors[state] = style.playerFilter.glowArgb(name, uuid, style)
+        } else {
+            activeGlowColors.remove(state)
         }
     }
 
@@ -41,15 +46,16 @@ object PlayerGlowRenderer {
         layerType: EquipmentModel.LayerType,
         loader: EquipmentModelLoader
     ) {
-        val style = ConfigManager.config.playerGlow
-        if (!style.enabled || state.invisible || state.invisibleToPlayer) return
         if (state !is PlayerEntityRenderState || state.spectator) return
+        if (state.invisible || state.invisibleToPlayer) return
+        val color = activeGlowColors[state] ?: return
 
         val equippable = stack.get(DataComponentTypes.EQUIPPABLE) ?: return
         val assetKey = equippable.assetId().orElse(null) ?: return
         val layers = loader.get(assetKey).getLayers(layerType)
         if (layers.isEmpty()) return
 
+        val style = ConfigManager.config.playerGlow
         val dyeColor = DyedColorComponent.getColor(stack, 0)
         for (equipmentLayer in layers) {
             if (equipmentLayer.dyeable.isPresent && dyeColor == 0) continue
@@ -59,7 +65,7 @@ object PlayerGlowRenderer {
                 equipmentLayer.getFullTextureId(layerType)
             }
             @Suppress("UNCHECKED_CAST")
-            submitShells(model as Model<in PlayerEntityRenderState>, state, matrices, queue, texture, style)
+            submitShells(model as Model<in PlayerEntityRenderState>, state, matrices, queue, texture, style.thicknessPixels, color)
         }
     }
 
@@ -69,16 +75,16 @@ object PlayerGlowRenderer {
         matrices: MatrixStack,
         queue: OrderedRenderCommandQueue,
         texture: Identifier,
-        style: GlowStyle
+        thicknessPixels: Int,
+        color: Int
     ) {
         val layer = PlayerGlowRenderLayer.forTexture(texture)
-        val shells = style.thicknessPixels.coerceIn(1, 4)
-        val extra = 0.006f + style.thicknessPixels * 0.012f
+        val shells = thicknessPixels.coerceIn(1, 4)
+        val extra = 0.006f + thicknessPixels * 0.012f
 
         for (shell in shells downTo 1) {
             val t = shell / shells.toFloat()
             val scale = 1f + extra * t
-            val color = style.glowArgb()
 
             matrices.push()
             matrices.translate(0f, 0.75f, 0f)

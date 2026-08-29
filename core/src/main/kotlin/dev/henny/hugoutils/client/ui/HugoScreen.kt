@@ -481,7 +481,7 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
             drawSlider(context, layout.width, "Konturbreite: ${style.thicknessPixels}px",
                 (style.thicknessPixels - 1) / 3f, widthId)
         }
-        drawFilterButton(context, layout.filterButton, if (filter == null) "Spieler auswählen…" else "Items / Blöcke auswählen…")
+                drawFilterButton(context, layout.filterButton, if (filter == null) "Spieler & Farben…" else "Items / Blöcke auswählen…")
     }
 
     private fun drawGlintCard(context: DrawContext) {
@@ -744,6 +744,9 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
 
     override fun mouseDragged(click: Click, offsetX: Double, offsetY: Double): Boolean {
         val (mx, my) = pointer(click)
+        PopupManager.active?.let {
+            if (it.mouseDragged(mx, my)) return true
+        }
         if (category == ConfigCategory.VISUALS) {
             val pickerDragged =
                 (expandedDropped &&
@@ -778,6 +781,7 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
     }
 
     override fun mouseReleased(click: Click): Boolean {
+        PopupManager.active?.mouseReleased()
         droppedPicker.mouseReleased()
         heldGlowPicker.mouseReleased()
         playerGlowPicker.mouseReleased()
@@ -1027,6 +1031,8 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 "- Normale Ansicht: andere sichtbare Spieler leuchten.\n" +
                 "- F5: zusätzlich kann dein eigenes Spielermodell leuchten.\n" +
                 "- Blöcke verdecken den Glow vollständig; es ist kein Wallhack/ESP.\n" +
+                "- Spieler auswählen: Filter (alle / nur ausgewählte / außer) und " +
+                "pro Spieler eine eigene Glow-Farbe (Farbfeld am Eintrag).\n" +
                 "Farbe, Transparenz, Kontur-Stärke und Kontur-Breite sind getrennt einstellbar."
     }
 }
