@@ -26,24 +26,31 @@ object AuthApiClient {
 
     @JvmStatic
     fun login(rawCode: String, source: FabricClientCommandSource) {
+        login(rawCode) { message, error ->
+            if (error) source.sendError(Text.literal(message))
+            else source.sendFeedback(Text.literal(message))
+        }
+    }
+
+    fun login(rawCode: String, feedback: (message: String, error: Boolean) -> Unit) {
         val code = rawCode.trim().uppercase()
         if (!codePattern.matches(code)) {
-            source.sendError(Text.literal("Ungültiger Login-Code. Öffne hugo.henny.dev/anmelden."))
+            dispatchFeedback(feedback, "Ungültiger Login-Code. Öffne hugo.henny.dev/anmelden.", true)
             return
         }
         if (!busy.compareAndSet(false, true)) {
-            source.sendError(Text.literal("Ein Web-Login läuft bereits."))
+            dispatchFeedback(feedback, "Ein Web-Login läuft bereits.", true)
             return
         }
-        source.sendFeedback(Text.literal("HugoUtils: Minecraft-Konto wird sicher bestätigt …"))
+        dispatchFeedback(feedback, "HugoUtils: Minecraft-Konto wird sicher bestätigt …", false)
         executor.execute {
             try {
                 performLogin(code)
-                feedback(source, "HugoUtils: Web-Login bestätigt. Kehre zum Browser zurück.", false)
+                dispatchFeedback(feedback, "HugoUtils: Web-Login bestätigt. Kehre zum Browser zurück.", false)
             } catch (error: LoginFailure) {
-                feedback(source, error.userMessage, true)
+                dispatchFeedback(feedback, error.userMessage, true)
             } catch (_: Exception) {
-                feedback(source, "HugoUtils: Login-Dienst ist gerade nicht erreichbar.", true)
+                dispatchFeedback(feedback, "HugoUtils: Login-Dienst ist gerade nicht erreichbar.", true)
             } finally {
                 busy.set(false)
             }
@@ -121,10 +128,9 @@ object AuthApiClient {
         return LoginFailure("HugoUtils: $message")
     }
 
-    private fun feedback(source: FabricClientCommandSource, message: String, error: Boolean) {
+    private fun dispatchFeedback(feedback: (String, Boolean) -> Unit, message: String, error: Boolean) {
         MinecraftClient.getInstance().execute {
-            if (error) source.sendError(Text.literal(message))
-            else source.sendFeedback(Text.literal(message))
+            feedback(message, error)
         }
     }
 

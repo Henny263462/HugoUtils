@@ -8,6 +8,9 @@ enum class ConfigCategory(
     val footer: Boolean = false
 ) {
     VISUALS("visuals", "Visuals", true),
+    PERSPECTIVE("perspective", "F5-Perspektive", true),
+    AFK_BOT("afk_bot", "AFK Bot", true),
+    SIGN_IN("sign_in", "Sign-in", true),
     PROFILES("profiles", "Profile", true),
     UPDATES("updates", "Updates", true, footer = true),
     MARKET("market", "Market", false),

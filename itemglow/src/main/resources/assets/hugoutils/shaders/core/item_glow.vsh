@@ -18,7 +18,13 @@ out vec4 vertexColor;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    gl_Position.xy += vec2(OUTLINE_X, OUTLINE_Y) * 0.003 * gl_Position.w;
+    // Convert the configured thickness to real framebuffer pixels. The old
+    // fixed NDC offset changed with resolution/aspect ratio and over-expanded
+    // small held-item models.
+    gl_Position.xy += vec2(
+        OUTLINE_X * 2.0 / ScreenSize.x,
+        OUTLINE_Y * 2.0 / ScreenSize.y
+    ) * gl_Position.w;
     sphericalVertexDistance = fog_spherical_distance(Position);
     cylindricalVertexDistance = fog_cylindrical_distance(Position);
     texCoord0 = UV0;

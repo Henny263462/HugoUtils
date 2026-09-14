@@ -6,6 +6,7 @@
   "mixins": [
   ],
   "client": [
+    "MinecraftClientPerspectiveMixin",
     "RenderLayerAccessor",
     "RenderLayerInvoker",
     "RenderPipelinesOutlineMixin",
