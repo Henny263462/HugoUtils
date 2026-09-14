@@ -152,7 +152,10 @@ object ItemGlowRenderer {
         val leftHand = accessor.`hugoutils$getDisplayContext`().isLeftHand
         val glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE
 
-        val color = style.glowArgb(0.3f)
+        // Each item is submitted in twelve shifted passes. Keep the
+        // per-pass alpha low so small and multi-layer models do not accumulate
+        // into an opaque colored silhouette.
+        val color = style.glowArgb(0.12f)
         for (index in 0 until layerCount) {
             val layer = layers[index]
             val quads = layer.quads
