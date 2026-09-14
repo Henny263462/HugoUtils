@@ -6,6 +6,8 @@ class ModConfig {
     var playerGlow: GlowStyle = GlowStyle.playerDefault()
     var heldGlint: GlintStyle = GlintStyle()
     var perspectiveMode: String = PerspectiveMode.VANILLA.id
+    var showCrosshairInThirdPerson: Boolean = false
+    var showOwnNameInThirdPerson: Boolean = false
     var checkUpdatesAutomatically: Boolean = true
     var includePrereleases: Boolean = false
 

@@ -10,14 +10,18 @@ class PerspectiveConfigPage : ConfigPage {
     private val client = MinecraftClient.getInstance()
     private var frame = UiRect(0, 0, 0, 0)
     private var choices = emptyList<Pair<PerspectiveMode, UiRect>>()
+    private var crosshairToggle = UiRect(0, 0, 0, 0)
+    private var playerNameToggle = UiRect(0, 0, 0, 0)
     private var lastMouseX = 0.0
     private var lastMouseY = 0.0
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        frame = UiRect(x, y, width, 154)
+        frame = UiRect(x, y, width, 214)
         choices = PerspectiveMode.entries.mapIndexed { index, mode ->
             mode to UiRect(x + 10, y + 58 + index * 26, width - 20, 22)
         }
+        crosshairToggle = UiRect(x + width - 42, y + 153, 32, 14)
+        playerNameToggle = UiRect(x + width - 42, y + 181, 32, 14)
         return frame.h
     }
 
@@ -63,6 +67,11 @@ class PerspectiveConfigPage : ConfigPage {
                 false
             )
         }
+
+        context.drawText(font, "Crosshair in F5 anzeigen", frame.x + 10, frame.y + 156, HugoTheme.text, false)
+        drawToggle(context, crosshairToggle, ConfigManager.config.showCrosshairInThirdPerson)
+        context.drawText(font, "Eigenen Spielernamen anzeigen", frame.x + 10, frame.y + 184, HugoTheme.text, false)
+        drawToggle(context, playerNameToggle, ConfigManager.config.showOwnNameInThirdPerson)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {
@@ -70,8 +79,35 @@ class PerspectiveConfigPage : ConfigPage {
             ConfigManager.update { it.perspectiveMode = mode.id }
             return true
         }
+        if (crosshairToggle.contains(mouseX, mouseY) || toggleRow(crosshairToggle, mouseX, mouseY)) {
+            ConfigManager.update { it.showCrosshairInThirdPerson = !it.showCrosshairInThirdPerson }
+            return true
+        }
+        if (playerNameToggle.contains(mouseX, mouseY) || toggleRow(playerNameToggle, mouseX, mouseY)) {
+            ConfigManager.update { it.showOwnNameInThirdPerson = !it.showOwnNameInThirdPerson }
+            return true
+        }
         return frame.contains(mouseX, mouseY)
     }
 
     override fun persist() = ConfigManager.requestSave()
+
+    private fun toggleRow(toggle: UiRect, mouseX: Double, mouseY: Double): Boolean =
+        mouseX >= frame.x + 10 && mouseX < toggle.x &&
+            mouseY >= toggle.y - 4 && mouseY <= toggle.bottom() + 4
+
+    private fun drawToggle(context: DrawContext, rect: UiRect, enabled: Boolean) {
+        val hovered = rect.contains(lastMouseX, lastMouseY)
+        UiDraw.fill(context, rect, if (enabled) HugoTheme.success else HugoTheme.trackOff)
+        UiDraw.border(
+            context,
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            if (hovered) HugoTheme.accent else HugoTheme.cardBorder
+        )
+        val knobX = if (enabled) rect.right() - 14 else rect.x + 2
+        UiDraw.fill(context, knobX, rect.y + 2, 12, rect.h - 4, HugoTheme.knob)
+    }
 }

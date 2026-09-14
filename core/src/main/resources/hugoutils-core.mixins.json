@@ -6,7 +6,9 @@
   "mixins": [
   ],
   "client": [
+    "InGameHudCrosshairMixin",
     "MinecraftClientPerspectiveMixin",
+    "PlayerEntityRendererNameMixin",
     "RenderLayerAccessor",
     "RenderLayerInvoker",
     "RenderPipelinesOutlineMixin",
