@@ -18,13 +18,14 @@ out vec4 vertexColor;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    // Convert the configured thickness to real framebuffer pixels. The old
-    // fixed NDC offset changed with resolution/aspect ratio and over-expanded
-    // small held-item models.
+    // Compensate the horizontal offset for the active projection's aspect
+    // ratio. This keeps the outline round and reduces over-expansion on small
+    // held-item models without relying on unavailable framebuffer uniforms.
+    float horizontalScale = abs(ProjMat[0][0] / ProjMat[1][1]);
     gl_Position.xy += vec2(
-        OUTLINE_X * 2.0 / ScreenSize.x,
-        OUTLINE_Y * 2.0 / ScreenSize.y
-    ) * gl_Position.w;
+        OUTLINE_X * horizontalScale,
+        OUTLINE_Y
+    ) * 0.0018 * gl_Position.w;
     sphericalVertexDistance = fog_spherical_distance(Position);
     cylindricalVertexDistance = fog_cylindrical_distance(Position);
     texCoord0 = UV0;
