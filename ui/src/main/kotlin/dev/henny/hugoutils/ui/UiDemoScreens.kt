@@ -67,7 +67,6 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
             it.layout(width, height)
             it.render(context, mouseX, mouseY)
         }
-        UiOverlays.host.update((deltaTicks / 20f).coerceIn(0f, .1f))
         UiOverlays.host.renderToasts(context, textRenderer, width, height)
         super.render(context, mouseX, mouseY, deltaTicks)
     }
