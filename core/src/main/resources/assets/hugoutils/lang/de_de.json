@@ -1,4 +1,6 @@
 {
   "key.hugoutils.open_config": "HugoSMPUtils öffnen",
-  "key.category.hugoutils.main": "HugoSMPUtils"
+  "key.hugoutils.gui_capture": "GUI-Snapshot erfassen",
+  "key.category.hugoutils.main": "HugoSMPUtils",
+  "key.category.hugoutils.gui_capture": "HugoSMPUtils – GUI Capture"
 }

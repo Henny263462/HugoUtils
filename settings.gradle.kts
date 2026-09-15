@@ -13,5 +13,6 @@ rootProject.name = "hugoutils"
 include("core")
 include("itemglow")
 include("playerglow")
+include("blockhighlight")
 include("fastitems")
 include("fabric")

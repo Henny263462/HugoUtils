@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.henny.hugoutils.blockhighlight.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [],
+  "client": [
+    "WorldRendererBlockHighlightMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

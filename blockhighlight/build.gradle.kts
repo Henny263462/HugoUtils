@@ -5,7 +5,7 @@ plugins {
 }
 
 base {
-    archivesName.set("HugoUtils")
+    archivesName.set("hugoutils-blockhighlight")
 }
 
 architectury {
@@ -23,19 +23,7 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${rootProject.property("loader_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${rootProject.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${rootProject.property("fabric_version")}")
-
-    include(project(":core"))
-    include(project(":itemglow"))
-    include(project(":playerglow"))
-    include(project(":blockhighlight"))
-    include(project(":fastitems"))
-
-    // Load the bundled modules as classpath mods in the development runtime
     common(project(":core", configuration = "namedElements")) { isTransitive = false }
-    common(project(":itemglow", configuration = "namedElements")) { isTransitive = false }
-    common(project(":playerglow", configuration = "namedElements")) { isTransitive = false }
-    common(project(":blockhighlight", configuration = "namedElements")) { isTransitive = false }
-    common(project(":fastitems", configuration = "namedElements")) { isTransitive = false }
 }
 
 tasks.processResources {
@@ -44,7 +32,6 @@ tasks.processResources {
     inputs.property("loader_version", rootProject.property("loader_version")!!)
     inputs.property("kotlin_loader_version", rootProject.property("kotlin_loader_version")!!)
     filteringCharset = "UTF-8"
-
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version.toString(),
@@ -57,13 +44,4 @@ tasks.processResources {
 
 java {
     withSourcesJar()
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            artifactId = "hugoutils"
-            from(components["java"])
-        }
-    }
 }

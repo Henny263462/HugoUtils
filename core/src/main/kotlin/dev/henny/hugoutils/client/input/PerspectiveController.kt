@@ -3,8 +3,8 @@ package dev.henny.hugoutils.client.input
 import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.config.PerspectiveMode
 import net.minecraft.client.MinecraftClient
-import net.minecraft.client.network.AbstractClientPlayerEntity
 import net.minecraft.client.option.Perspective
+import net.minecraft.entity.PlayerLikeEntity
 
 object PerspectiveController {
     @JvmStatic
@@ -32,7 +32,7 @@ object PerspectiveController {
     }
 
     @JvmStatic
-    fun shouldShowOwnName(player: AbstractClientPlayerEntity): Boolean {
+    fun shouldShowOwnName(player: PlayerLikeEntity): Boolean {
         val client = MinecraftClient.getInstance()
         return ConfigManager.config.showOwnNameInThirdPerson &&
             player === client.player &&

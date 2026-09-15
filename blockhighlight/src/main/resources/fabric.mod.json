@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils-blockhighlight",
+  "version": "${version}",
+  "name": "HugoUtils Block Highlight",
+  "description": "Configurable overlay for the targeted block.",
+  "authors": ["henny"],
+  "license": "Apache-2.0",
+  "icon": "assets/hugoutils/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.henny.hugoutils.blockhighlight.BlockHighlightMod"
+    ]
+  },
+  "mixins": [
+    "hugoutils-blockhighlight.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}",
+    "hugoutils-core": "${version}"
+  }
+}

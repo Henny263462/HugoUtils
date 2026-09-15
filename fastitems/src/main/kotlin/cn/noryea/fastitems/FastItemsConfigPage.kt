@@ -17,7 +17,7 @@ import net.minecraft.item.ItemStack
 import kotlin.math.roundToInt
 
 class FastItemsConfigPage : ConfigPage {
-    override val category: ConfigCategory = ConfigCategory.VISUALS
+    override val category: ConfigCategory = ConfigCategory.FAST_ITEMS
 
     private var expanded = false
     private var enableAnim = if (FastItemsConfig.isActive()) 1f else 0f

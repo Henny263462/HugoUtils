@@ -81,6 +81,17 @@ class SignInConfigPage : ConfigPage {
 
     override fun keyPressed(input: KeyInput): Boolean {
         if (!focused) return false
+        if (input.isPaste) {
+            code = normalizeCode(client.keyboard.clipboard)
+            status = if (code.length == CODE_LENGTH) "Code eingefügt – bereit zur Anmeldung." else
+                "Zwischenablage enthält keinen vollständigen Login-Code."
+            statusError = code.length != CODE_LENGTH
+            return true
+        }
+        if (input.isCopy) {
+            if (code.isNotEmpty()) client.keyboard.clipboard = code
+            return true
+        }
         return when (input.key()) {
             GLFW.GLFW_KEY_BACKSPACE -> {
                 if (code.isNotEmpty()) code = code.dropLast(1)
@@ -122,6 +133,9 @@ class SignInConfigPage : ConfigPage {
     }
 
     private fun canSubmit(): Boolean = !working && code.length == CODE_LENGTH
+
+    private fun normalizeCode(value: String): String =
+        value.uppercase().filter { it in CODE_CHARS }.take(CODE_LENGTH)
 
     private fun drawInput(context: DrawContext) {
         val font = client.textRenderer

@@ -6,6 +6,13 @@
   "mixins": [
   ],
   "client": [
+    "EffectsGameRendererMixin",
+    "EffectsInGameOverlayRendererMixin",
+    "EffectsParticleAlphaAccessor",
+    "EffectsParticleManagerMixin",
+    "GuiCaptureHandledScreenAccessor",
+    "GuiCaptureHandledScreenMixin",
+    "GuiCaptureScreenInputMixin",
     "InGameHudCrosshairMixin",
     "MinecraftClientPerspectiveMixin",
     "PlayerEntityRendererNameMixin",
