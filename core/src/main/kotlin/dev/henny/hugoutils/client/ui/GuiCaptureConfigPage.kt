@@ -41,9 +41,13 @@ class GuiCaptureConfigPage : ConfigPage {
             )
         }
         context.drawText(font, "UI-Debug-Commands", frame.x + 10, frame.y + 166, HugoTheme.text, false)
-        UiDraw.fill(context, debugToggle, if (ConfigManager.config.uiDebugCommandsEnabled) HugoTheme.accentMuted else HugoTheme.trackOff)
-        val knobX = if (ConfigManager.config.uiDebugCommandsEnabled) debugToggle.right() - 11 else debugToggle.x + 3
-        UiDraw.fill(context, knobX, debugToggle.y + 3, 8, 8, HugoTheme.knob)
+        UiWidgets.toggle(
+            context,
+            debugToggle,
+            ConfigManager.config.uiDebugCommandsEnabled,
+            mouseX.toDouble(),
+            mouseY.toDouble()
+        )
         context.drawText(
             font,
             "/hugoutils-ui demo gallery|form|list|dialog|navigation",

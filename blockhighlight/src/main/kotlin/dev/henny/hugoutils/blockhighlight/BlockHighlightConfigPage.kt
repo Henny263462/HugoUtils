@@ -5,8 +5,10 @@ import dev.henny.hugoutils.client.ui.ConfigCategory
 import dev.henny.hugoutils.client.ui.ConfigPage
 import dev.henny.hugoutils.client.ui.HugoTheme
 import dev.henny.hugoutils.ui.ColorPicker
+import dev.henny.hugoutils.ui.ButtonStyle
 import dev.henny.hugoutils.ui.UiDraw
 import dev.henny.hugoutils.ui.UiRect
+import dev.henny.hugoutils.ui.UiWidgets
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
@@ -214,18 +216,19 @@ class BlockHighlightConfigPage : ConfigPage {
     }
 
     private fun drawToggle(context: DrawContext) {
-        val enabled = BlockHighlightConfig.enabled
-        UiDraw.fill(context, toggle, if (enabled) HugoTheme.success else HugoTheme.trackOff)
-        UiDraw.border(context, toggle.x, toggle.y, toggle.w, toggle.h, HugoTheme.cardBorder)
-        UiDraw.fill(context, if (enabled) toggle.right() - 14 else toggle.x + 2, toggle.y + 2, 12, toggle.h - 4, HugoTheme.knob)
+        UiWidgets.toggle(context, toggle, BlockHighlightConfig.enabled, mouseX, mouseY)
     }
 
     private fun drawButton(context: DrawContext, rect: UiRect, text: String, enabled: Boolean) {
-        val hovered = enabled && rect.contains(mouseX, mouseY)
-        UiDraw.fill(context, rect, if (hovered) HugoTheme.accentSoft else HugoTheme.inset)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (hovered) HugoTheme.accent else HugoTheme.cardBorder)
-        val shown = UiDraw.ellipsize(client.textRenderer, text, rect.w - 8)
-        context.drawText(client.textRenderer, shown, rect.x + (rect.w - client.textRenderer.getWidth(shown)) / 2, rect.y + 7,
-            if (enabled) HugoTheme.text else HugoTheme.textDim, false)
+        UiWidgets.button(
+            context,
+            client.textRenderer,
+            rect,
+            text,
+            mouseX,
+            mouseY,
+            enabled,
+            ButtonStyle.SECONDARY
+        )
     }
 }

@@ -8,6 +8,7 @@ import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
 import kotlin.math.roundToInt
+import dev.henny.hugoutils.ui.ButtonStyle
 
 class UpdateConfigPage : ConfigPage {
     override val category = ConfigCategory.UPDATES
@@ -124,39 +125,19 @@ class UpdateConfigPage : ConfigPage {
     }
 
     private fun drawToggle(context: DrawContext, rect: UiRect, anim: Float) {
-        val hovered = rect.contains(lastMouseX, lastMouseY)
-        val on = HugoTheme.lerpColor(HugoTheme.trackOff, HugoTheme.success, anim)
-        UiDraw.fill(context, rect, on)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (hovered) HugoTheme.accent else HugoTheme.cardBorder)
-        val knobW = 12
-        val knobX = rect.x + 2 + ((rect.w - knobW - 4) * anim).roundToInt()
-        UiDraw.fill(context, knobX, rect.y + 2, knobW, rect.h - 4, HugoTheme.knob)
+        UiWidgets.toggleProgress(context, rect, anim, lastMouseX, lastMouseY)
     }
 
     private fun drawButton(context: DrawContext, rect: UiRect, label: String, enabled: Boolean) {
-        val hovered = enabled && rect.contains(lastMouseX, lastMouseY)
-        UiDraw.fill(context, rect, when {
-            !enabled -> HugoTheme.inset
-            hovered -> HugoTheme.accentSoft
-            else -> HugoTheme.inset
-        })
-        UiDraw.border(
+        UiWidgets.button(
             context,
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            if (hovered) HugoTheme.accent else HugoTheme.cardBorder
-        )
-        val font = client.textRenderer
-        val color = if (enabled) HugoTheme.text else HugoTheme.textDim
-        context.drawText(
-            font,
-            UiDraw.ellipsize(font, label, rect.w - 8),
-            rect.x + 4,
-            rect.y + 7,
-            color,
-            false
+            client.textRenderer,
+            rect,
+            label,
+            lastMouseX,
+            lastMouseY,
+            enabled,
+            ButtonStyle.SECONDARY
         )
     }
 

@@ -9,6 +9,7 @@ import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
 import net.minecraft.util.Util
 import org.lwjgl.glfw.GLFW
+import dev.henny.hugoutils.ui.ButtonStyle
 
 class SignInConfigPage : ConfigPage {
     override val category = ConfigCategory.SIGN_IN
@@ -157,25 +158,15 @@ class SignInConfigPage : ConfigPage {
     }
 
     private fun drawButton(context: DrawContext, rect: UiRect, label: String, enabled: Boolean) {
-        val hovered = enabled && rect.contains(lastMouseX, lastMouseY)
-        UiDraw.fill(context, rect, if (hovered) HugoTheme.accentSoft else HugoTheme.inset)
-        UiDraw.border(
+        UiWidgets.button(
             context,
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            if (hovered) HugoTheme.accent else HugoTheme.cardBorder
-        )
-        val font = client.textRenderer
-        val shown = UiDraw.ellipsize(font, label, rect.w - 8)
-        context.drawText(
-            font,
-            shown,
-            rect.x + (rect.w - font.getWidth(shown)) / 2,
-            rect.y + 7,
-            if (enabled) HugoTheme.text else HugoTheme.textDim,
-            false
+            client.textRenderer,
+            rect,
+            label,
+            lastMouseX,
+            lastMouseY,
+            enabled,
+            ButtonStyle.SECONDARY
         )
     }
 

@@ -572,13 +572,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     }
 
     private fun drawToggle(context: DrawContext, rect: UiRect, anim: Float) {
-        val hovered = rect.contains(lastMouseX, lastMouseY)
-        val on = HugoTheme.lerpColor(HugoTheme.trackOff, HugoTheme.success, anim)
-        UiDraw.fill(context, rect, on)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (hovered) HugoTheme.accent else HugoTheme.cardBorder)
-        val knobW = 12
-        val knobX = rect.x + 2 + ((rect.w - knobW - 4) * anim).roundToInt()
-        UiDraw.fill(context, knobX, rect.y + 2, knobW, rect.h - 4, HugoTheme.knob)
+        UiWidgets.toggleProgress(context, rect, anim, lastMouseX, lastMouseY)
     }
 
     private fun drawSlider(context: DrawContext, rect: UiRect, label: String, value: Float, id: SliderId) {
@@ -587,12 +581,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         val percent = "${(value * 100).roundToInt()}%"
         context.drawText(textRenderer, percent, rect.right() - textRenderer.getWidth(percent), rect.y, HugoTheme.text, false)
         val trackY = rect.y + 12
-        UiDraw.fill(context, rect.x, trackY, rect.w, 6, HugoTheme.inset)
-        UiDraw.border(context, rect.x, trackY, rect.w, 6, if (hovered) HugoTheme.accentMuted else HugoTheme.cardBorder)
-        val fillW = (rect.w * value).roundToInt().coerceIn(2, rect.w)
-        UiDraw.fill(context, rect.x + 1, trackY + 1, fillW - 2, 4, HugoTheme.accent)
-        val knobX = rect.x + ((rect.w - 6) * value).roundToInt()
-        UiDraw.fill(context, knobX, trackY - 2, 6, 10, if (hovered) HugoTheme.accent else HugoTheme.knob)
+        UiWidgets.sliderTrack(context, UiRect(rect.x, trackY, rect.w, 6), value, hovered, key = id)
     }
 
     override fun mouseClicked(click: Click, doubled: Boolean): Boolean {

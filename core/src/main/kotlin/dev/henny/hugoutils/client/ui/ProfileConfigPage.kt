@@ -7,6 +7,7 @@ import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
 import org.lwjgl.glfw.GLFW
+import dev.henny.hugoutils.ui.ButtonStyle
 import kotlin.math.roundToInt
 
 class ProfileConfigPage : ConfigPage {
@@ -324,38 +325,19 @@ class ProfileConfigPage : ConfigPage {
         primary: Boolean,
         danger: Boolean = false
     ) {
-        val hovered = enabled && rect.contains(lastMouseX, lastMouseY)
-        val fill = when {
-            !enabled -> HugoTheme.inset
-            danger && hovered -> 0x55FF6B6B
-            danger -> 0x33FF6B6B
-            primary && hovered -> HugoTheme.accentSoft
-            primary -> 0x226EE7FF
-            hovered -> HugoTheme.accentSoft
-            else -> HugoTheme.inset
-        }
-        val border = when {
-            !enabled -> HugoTheme.cardBorder
-            danger -> HugoTheme.danger
-            hovered || primary -> HugoTheme.accent
-            else -> HugoTheme.cardBorder
-        }
-        UiDraw.fill(context, rect, fill)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, border)
-        val font = client.textRenderer
-        val color = when {
-            !enabled -> HugoTheme.textDim
-            danger -> HugoTheme.danger
-            else -> HugoTheme.text
-        }
-        val shown = UiDraw.ellipsize(font, label, rect.w - 8)
-        context.drawText(
-            font,
-            shown,
-            rect.x + (rect.w - font.getWidth(shown)) / 2,
-            rect.y + 7,
-            color,
-            false
+        UiWidgets.button(
+            context,
+            client.textRenderer,
+            rect,
+            label,
+            lastMouseX,
+            lastMouseY,
+            enabled,
+            when {
+                danger -> ButtonStyle.DANGER
+                primary -> ButtonStyle.PRIMARY
+                else -> ButtonStyle.SECONDARY
+            }
         )
     }
 

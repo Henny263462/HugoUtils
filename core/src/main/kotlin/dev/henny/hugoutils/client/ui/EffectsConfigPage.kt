@@ -6,6 +6,7 @@ import dev.henny.hugoutils.client.config.ParticleTypeOverride
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.registry.Registries
+import dev.henny.hugoutils.ui.ButtonStyle
 import kotlin.math.roundToInt
 
 class EffectsConfigPage : ConfigPage {
@@ -165,10 +166,7 @@ class EffectsConfigPage : ConfigPage {
         val font = client.textRenderer
         val color = if (enabled) HugoTheme.text else HugoTheme.textDim
         context.drawText(font, label, frame.x + 10, rect.y + 2, color, false)
-        UiDraw.fill(context, rect, HugoTheme.inset)
-        val amount = (rect.w * normalized.coerceIn(0f, 1f)).roundToInt()
-        if (enabled && amount > 0) UiDraw.fill(context, rect.x, rect.y, amount, rect.h, HugoTheme.accentSoft)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (enabled && rect.contains(mouseX, mouseY)) HugoTheme.accent else HugoTheme.cardBorder)
+        UiWidgets.sliderTrack(context, rect, normalized, rect.contains(mouseX, mouseY), enabled, id)
         val value = when (id) {
             SliderId.SIZE, SliderId.TYPE_SIZE -> "%.2f×".format(normalized * 3f)
             else -> "${(normalized * 100).roundToInt()}%"
@@ -177,17 +175,11 @@ class EffectsConfigPage : ConfigPage {
     }
 
     private fun drawToggle(context: DrawContext, rect: UiRect, enabled: Boolean, interactive: Boolean = true) {
-        UiDraw.fill(context, rect, if (enabled) HugoTheme.success else HugoTheme.trackOff)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (interactive && rect.contains(mouseX, mouseY)) HugoTheme.accent else HugoTheme.cardBorder)
-        val knobX = if (enabled) rect.right() - 14 else rect.x + 2
-        UiDraw.fill(context, knobX, rect.y + 2, 12, rect.h - 4, if (interactive) HugoTheme.knob else HugoTheme.textDim)
+        UiWidgets.toggle(context, rect, enabled, mouseX, mouseY, interactive)
     }
 
     private fun drawButton(context: DrawContext, rect: UiRect, label: String) {
-        UiDraw.fill(context, rect, if (rect.contains(mouseX, mouseY)) HugoTheme.accentSoft else HugoTheme.inset)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (rect.contains(mouseX, mouseY)) HugoTheme.accent else HugoTheme.cardBorder)
-        val font = client.textRenderer
-        context.drawText(font, label, rect.x + (rect.w - font.getWidth(label)) / 2, rect.y + 6, HugoTheme.text, false)
+        UiWidgets.button(context, client.textRenderer, rect, label, mouseX, mouseY, style = ButtonStyle.SECONDARY)
     }
 
     private enum class SliderId {

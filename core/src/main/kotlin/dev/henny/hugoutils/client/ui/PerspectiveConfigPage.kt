@@ -97,17 +97,6 @@ class PerspectiveConfigPage : ConfigPage {
             mouseY >= toggle.y - 4 && mouseY <= toggle.bottom() + 4
 
     private fun drawToggle(context: DrawContext, rect: UiRect, enabled: Boolean) {
-        val hovered = rect.contains(lastMouseX, lastMouseY)
-        UiDraw.fill(context, rect, if (enabled) HugoTheme.success else HugoTheme.trackOff)
-        UiDraw.border(
-            context,
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            if (hovered) HugoTheme.accent else HugoTheme.cardBorder
-        )
-        val knobX = if (enabled) rect.right() - 14 else rect.x + 2
-        UiDraw.fill(context, knobX, rect.y + 2, 12, rect.h - 4, HugoTheme.knob)
+        UiWidgets.toggle(context, rect, enabled, lastMouseX, lastMouseY)
     }
 }

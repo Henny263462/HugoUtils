@@ -9,12 +9,12 @@ import dev.henny.hugoutils.client.ui.ItemFilterPopup
 import dev.henny.hugoutils.client.ui.PopupManager
 import dev.henny.hugoutils.ui.UiDraw
 import dev.henny.hugoutils.ui.UiRect
+import dev.henny.hugoutils.ui.UiWidgets
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
 import net.minecraft.item.ItemStack
-import kotlin.math.roundToInt
 
 class FastItemsConfigPage : ConfigPage {
     override val category: ConfigCategory = ConfigCategory.FAST_ITEMS
@@ -144,13 +144,7 @@ class FastItemsConfigPage : ConfigPage {
     )
 
     private fun drawToggle(context: DrawContext, rect: UiRect, anim: Float) {
-        val hovered = rect.contains(lastMouseX, lastMouseY)
-        val on = HugoTheme.lerpColor(HugoTheme.trackOff, HugoTheme.success, anim)
-        UiDraw.fill(context, rect, on)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (hovered) HugoTheme.accent else HugoTheme.cardBorder)
-        val knobW = 12
-        val knobX = rect.x + 2 + ((rect.w - knobW - 4) * anim).roundToInt()
-        UiDraw.fill(context, knobX, rect.y + 2, knobW, rect.h - 4, HugoTheme.knob)
+        UiWidgets.toggleProgress(context, rect, anim, lastMouseX, lastMouseY)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {

@@ -2,8 +2,11 @@ package dev.henny.hugoutils.client.gui.capture
 
 import dev.henny.hugoutils.client.ui.HugoTheme
 import dev.henny.hugoutils.ui.TextFieldLogic
+import dev.henny.hugoutils.ui.ButtonStyle
 import dev.henny.hugoutils.ui.UiDraw
+import dev.henny.hugoutils.ui.UiFrame
 import dev.henny.hugoutils.ui.UiRect
+import dev.henny.hugoutils.ui.UiWidgets
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.screen.Screen
@@ -30,6 +33,7 @@ class GuiCaptureOverlay(
     private var status = "Snapshot eingefroren"
 
     fun render(context: DrawContext, mouseX: Int, mouseY: Int) {
+        UiFrame.beginFrame()
         val handled = screen as? HandledScreen<*>
         val originX = handled?.let(GuiCaptureScreenGeometry::x) ?: 0
         val originY = handled?.let(GuiCaptureScreenGeometry::y) ?: 0
@@ -286,14 +290,15 @@ class GuiCaptureOverlay(
     }
 
     private fun drawButton(context: DrawContext, rect: UiRect, label: String, mouseX: Int, mouseY: Int) {
-        val hovered = rect.contains(mouseX.toDouble(), mouseY.toDouble())
-        UiDraw.panel(
+        UiWidgets.button(
             context,
+            client.textRenderer,
             rect,
-            if (hovered) HugoTheme.accentSoft else HugoTheme.inset,
-            if (hovered) HugoTheme.accent else HugoTheme.cardBorder
+            label,
+            mouseX.toDouble(),
+            mouseY.toDouble(),
+            style = ButtonStyle.SECONDARY
         )
-        context.drawText(client.textRenderer, label, rect.x + 4, rect.y + 4, HugoTheme.text, false)
     }
 
     private enum class Field(val label: String, val placeholder: String = "…", val maxLength: Int = 256) {
