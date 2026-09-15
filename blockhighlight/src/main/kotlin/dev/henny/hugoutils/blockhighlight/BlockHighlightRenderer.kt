@@ -66,7 +66,7 @@ object BlockHighlightRenderer {
                 val uv = quad.getTexcoords(index)
                 consumer.vertex(entry, pos.x(), pos.y(), pos.z())
                     .color(color)
-                    .texture(Float.fromBits(uv.toInt()), Float.fromBits((uv ushr 32).toInt()))
+                    .texture(Float.fromBits((uv ushr 32).toInt()), Float.fromBits(uv.toInt()))
                     .overlay(OverlayTexture.DEFAULT_UV)
                     .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
                     .normal(entry, normal.x(), normal.y(), normal.z())

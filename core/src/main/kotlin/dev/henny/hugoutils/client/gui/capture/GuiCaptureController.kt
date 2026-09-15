@@ -4,6 +4,7 @@ import dev.henny.hugoutils.HugoIds
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
 import net.minecraft.client.MinecraftClient
+import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.client.input.KeyInput
 import net.minecraft.client.option.KeyBinding
@@ -11,7 +12,7 @@ import net.minecraft.client.util.InputUtil
 import org.lwjgl.glfw.GLFW
 
 fun interface GuiCaptureStarter {
-    fun startSnapshot(screen: HandledScreen<*>)
+    fun startSnapshot(screen: Screen)
 }
 
 object GuiCaptureController : GuiCaptureStarter {
@@ -33,13 +34,15 @@ object GuiCaptureController : GuiCaptureStarter {
         ClientTickEvents.END_CLIENT_TICK.register { client ->
             while (capture.wasPressed()) {
                 val screen = client.currentScreen
-                if (screen is HandledScreen<*>) startSnapshot(screen)
+                if (screen != null && screen !is GuiCaptureEditorScreen) startSnapshot(screen)
             }
-            overlay?.takeIf { client.currentScreen !== it.screen }?.let { stop() }
+            overlay?.takeIf {
+                client.currentScreen !== it.screen && client.currentScreen !is GuiCaptureEditorScreen
+            }?.let { stop() }
         }
     }
 
-    override fun startSnapshot(screen: HandledScreen<*>) {
+    override fun startSnapshot(screen: Screen) {
         val client = MinecraftClient.getInstance()
         val snapshot = GuiCaptureSnapshotter.capture(client, screen)
         val suggestedId = suggestId(screen)
@@ -69,15 +72,18 @@ object GuiCaptureController : GuiCaptureStarter {
             snapshot,
             draft
         )
+        if (screen !is HandledScreen<*>) {
+            client.setScreen(GuiCaptureEditorScreen(screen))
+        }
     }
 
-    fun activeFor(screen: HandledScreen<*>): GuiCaptureOverlay? =
+    fun activeFor(screen: Screen): GuiCaptureOverlay? =
         overlay?.takeIf { it.screen === screen }
 
     fun statusText(): String = overlay?.let { "Aktive Session: ${it.draft.screenId}" }
         ?: "Keine aktive Capture-Session"
 
-    fun handleCaptureKey(screen: HandledScreen<*>, input: KeyInput): Boolean {
+    fun handleCaptureKey(screen: Screen, input: KeyInput): Boolean {
         if (input.key() != GLFW.GLFW_KEY_F8 || overlay?.screen === screen) return false
         startSnapshot(screen)
         return true
@@ -85,9 +91,11 @@ object GuiCaptureController : GuiCaptureStarter {
 
     fun stop() {
         overlay = null
+        val client = MinecraftClient.getInstance()
+        (client.currentScreen as? GuiCaptureEditorScreen)?.let { client.setScreen(it.parent) }
     }
 
-    private fun suggestId(screen: HandledScreen<*>): String {
+    private fun suggestId(screen: Screen): String {
         val className = screen.javaClass.simpleName
             .removeSuffix("HandledScreen")
             .removeSuffix("Screen")

@@ -5,6 +5,7 @@ import dev.henny.hugoutils.client.ui.UiDraw
 import dev.henny.hugoutils.client.ui.UiRect
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
+import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
@@ -12,7 +13,7 @@ import org.lwjgl.glfw.GLFW
 
 class GuiCaptureOverlay(
     private val client: MinecraftClient,
-    val screen: HandledScreen<*>,
+    val screen: Screen,
     val snapshot: GuiCaptureSnapshot,
     val draft: GuiCaptureDraft
 ) {
@@ -27,8 +28,9 @@ class GuiCaptureOverlay(
     private var status = "Snapshot eingefroren"
 
     fun render(context: DrawContext, mouseX: Int, mouseY: Int) {
-        val originX = GuiCaptureScreenGeometry.x(screen)
-        val originY = GuiCaptureScreenGeometry.y(screen)
+        val handled = screen as? HandledScreen<*>
+        val originX = handled?.let(GuiCaptureScreenGeometry::x) ?: 0
+        val originY = handled?.let(GuiCaptureScreenGeometry::y) ?: 0
         snapshot.slots.forEach { slot ->
             val x = originX + slot.x
             val y = originY + slot.y
@@ -133,8 +135,9 @@ class GuiCaptureOverlay(
             return true
         }
 
-        val originX = GuiCaptureScreenGeometry.x(screen)
-        val originY = GuiCaptureScreenGeometry.y(screen)
+        val handled = screen as? HandledScreen<*>
+        val originX = handled?.let(GuiCaptureScreenGeometry::x) ?: 0
+        val originY = handled?.let(GuiCaptureScreenGeometry::y) ?: 0
         snapshot.slots.firstOrNull {
             mouseX >= originX + it.x - 1 && mouseX < originX + it.x + 17 &&
                 mouseY >= originY + it.y - 1 && mouseY < originY + it.y + 17

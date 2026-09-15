@@ -5,6 +5,7 @@ import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.mojang.serialization.JsonOps
 import net.minecraft.client.MinecraftClient
+import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen
 import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.component.DataComponentTypes
@@ -18,7 +19,25 @@ import net.minecraft.screen.GenericContainerScreenHandler
 import java.time.Instant
 
 object GuiCaptureSnapshotter {
-    fun capture(client: MinecraftClient, screen: HandledScreen<*>): GuiCaptureSnapshot {
+    fun capture(client: MinecraftClient, screen: Screen): GuiCaptureSnapshot {
+        if (screen !is HandledScreen<*>) {
+            val lookup = client.networkHandler?.registryManager
+            return GuiCaptureSnapshot(
+                capturedAt = Instant.now().toString(),
+                title = screen.title.string,
+                titleRaw = encodeTitle(screen.title, lookup),
+                type = null,
+                handlerClass = "none",
+                clientScreenClass = screen.javaClass.name,
+                rows = null,
+                slotCount = 0,
+                inventoryStart = null,
+                syncId = -1,
+                backgroundWidth = screen.width,
+                backgroundHeight = screen.height,
+                slots = emptyList()
+            )
+        }
         val handler = screen.screenHandler
         val slots = handler.slots
         val lookup = client.networkHandler?.registryManager

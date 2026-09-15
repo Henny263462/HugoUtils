@@ -1,9 +1,10 @@
 package dev.henny.hugoutils.mixin;
 
 import dev.henny.hugoutils.client.gui.capture.GuiCaptureHooks;
+import dev.henny.hugoutils.client.gui.capture.GuiCaptureEditorScreen;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
 import org.lwjgl.glfw.GLFW;
@@ -24,10 +25,13 @@ public class GuiCaptureScreenInputMixin {
         KeyInput input,
         org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci
     ) {
-        if ((action == GLFW.GLFW_PRESS || action == GLFW.GLFW_REPEAT)
-            && client.currentScreen instanceof HandledScreen<?> handled
-            && GuiCaptureHooks.keyPressed(handled, input)
-        ) {
+        Screen screen = client.currentScreen;
+        if (screen == null || screen instanceof GuiCaptureEditorScreen
+            || (action != GLFW.GLFW_PRESS && action != GLFW.GLFW_REPEAT)) {
+            return;
+        }
+        boolean captureActive = GuiCaptureHooks.blocksSlotClicks(screen);
+        if (GuiCaptureHooks.keyPressed(screen, input) || captureActive) {
             ci.cancel();
         }
     }
@@ -38,9 +42,10 @@ public class GuiCaptureScreenInputMixin {
         CharInput input,
         org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci
     ) {
-        if (client.currentScreen instanceof HandledScreen<?> handled
-            && GuiCaptureHooks.charTyped(handled, input)
-        ) {
+        Screen screen = client.currentScreen;
+        if (screen == null || screen instanceof GuiCaptureEditorScreen) return;
+        boolean captureActive = GuiCaptureHooks.blocksSlotClicks(screen);
+        if (GuiCaptureHooks.charTyped(screen, input) || captureActive) {
             ci.cancel();
         }
     }
