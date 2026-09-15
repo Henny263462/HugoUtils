@@ -5,23 +5,24 @@ import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
 import net.minecraft.item.ItemStack
 
-interface ConfigPage {
+interface ConfigPage : dev.henny.hugoutils.ui.UiPage {
     val category: ConfigCategory
+    override val id: String get() = this::class.qualifiedName ?: this::class.simpleName ?: category.id
 
-    fun layout(x: Int, y: Int, width: Int, height: Int): Int
+    override fun layout(x: Int, y: Int, width: Int, height: Int): Int
 
-    fun render(context: DrawContext, mouseX: Int, mouseY: Int)
+    override fun render(context: DrawContext, mouseX: Int, mouseY: Int)
 
-    fun mouseClicked(mouseX: Double, mouseY: Double): Boolean = false
-    fun mouseDragged(mouseX: Double, mouseY: Double): Boolean = false
-    fun mouseReleased() {}
-    fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean = false
-    fun keyPressed(input: KeyInput): Boolean = false
-    fun charTyped(input: CharInput): Boolean = false
+    override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean = false
+    override fun mouseDragged(mouseX: Double, mouseY: Double): Boolean = false
+    override fun mouseReleased() {}
+    override fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean = false
+    override fun keyPressed(input: KeyInput): Boolean = false
+    override fun charTyped(input: CharInput): Boolean = false
 
-    fun resetUi() {}
+    override fun resetUi() {}
 
-    fun hoveredStack(): ItemStack? = null
+    override fun hoveredStack(): ItemStack? = null
 
-    fun persist()
+    override fun persist()
 }

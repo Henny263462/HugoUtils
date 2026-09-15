@@ -10,6 +10,7 @@ class ModConfig {
     var showOwnNameInThirdPerson: Boolean = false
     var checkUpdatesAutomatically: Boolean = true
     var includePrereleases: Boolean = false
+    var uiDebugCommandsEnabled: Boolean = false
 
     fun clamp() {
         droppedItemGlow.clamp()

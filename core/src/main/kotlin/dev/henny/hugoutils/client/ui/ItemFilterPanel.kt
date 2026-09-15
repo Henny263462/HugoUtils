@@ -2,6 +2,7 @@ package dev.henny.hugoutils.client.ui
 
 import dev.henny.hugoutils.client.config.ItemFilter
 import dev.henny.hugoutils.client.config.ItemGlowFilter
+import dev.henny.hugoutils.ui.TextFieldLogic
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.gui.DrawContext
@@ -32,7 +33,7 @@ class ItemFilterPanel(
     private val gridHits = ArrayList<Pair<Item, UiRect>>()
 
     private var searchFocused = false
-    private var search = ""
+    private val search = TextFieldLogic(maxLength = 80)
     private var gridScroll = 0
     private var maxGridScroll = 0
     var hoveredStack: ItemStack? = null
@@ -97,13 +98,13 @@ class ItemFilterPanel(
         }
 
         UiDraw.panel(context, searchBox, HugoTheme.inset, if (searchFocused) HugoTheme.accent else HugoTheme.cardBorder)
-        val shown = search.ifEmpty { "Item suchen…" }
+        val shown = search.text.ifEmpty { "Item suchen…" }
         context.drawText(
             textRenderer,
             UiDraw.ellipsize(textRenderer, shown, searchBox.w - 8),
             searchBox.x + 4,
             searchBox.y + 4,
-            if (search.isEmpty()) HugoTheme.textDim else HugoTheme.text,
+            if (search.text.isEmpty()) HugoTheme.textDim else HugoTheme.text,
             false
         )
 
@@ -174,7 +175,7 @@ class ItemFilterPanel(
         if (!searchFocused || !input.isValidChar) {
             return false
         }
-        search += input.asString()
+        search.insert(input.asString())
         gridScroll = 0
         return true
     }
@@ -183,10 +184,19 @@ class ItemFilterPanel(
         if (!searchFocused) {
             return false
         }
+        if (input.isPaste) {
+            search.paste(MinecraftClient.getInstance().keyboard.clipboard)
+            gridScroll = 0
+            return true
+        }
+        if (input.isCopy) {
+            MinecraftClient.getInstance().keyboard.clipboard = search.copy()
+            return true
+        }
         when (input.key()) {
             GLFW.GLFW_KEY_BACKSPACE -> {
-                if (search.isNotEmpty()) {
-                    search = search.dropLast(1)
+                if (search.text.isNotEmpty()) {
+                    search.backspace()
                     gridScroll = 0
                 }
                 return true
@@ -241,7 +251,7 @@ class ItemFilterPanel(
     private fun drawGrid(context: DrawContext, mouseX: Int, mouseY: Int) {
         gridHits.clear()
         UiDraw.panel(context, gridArea, HugoTheme.inset, HugoTheme.cardBorder)
-        val query = search.trim()
+        val query = search.text.trim()
         val items = if (query.isEmpty()) {
             catalog
         } else {

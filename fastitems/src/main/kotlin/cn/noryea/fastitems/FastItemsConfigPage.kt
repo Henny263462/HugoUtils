@@ -7,8 +7,8 @@ import dev.henny.hugoutils.client.ui.HugoTheme
 import dev.henny.hugoutils.client.ui.ItemFilterPanel
 import dev.henny.hugoutils.client.ui.ItemFilterPopup
 import dev.henny.hugoutils.client.ui.PopupManager
-import dev.henny.hugoutils.client.ui.UiDraw
-import dev.henny.hugoutils.client.ui.UiRect
+import dev.henny.hugoutils.ui.UiDraw
+import dev.henny.hugoutils.ui.UiRect
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput

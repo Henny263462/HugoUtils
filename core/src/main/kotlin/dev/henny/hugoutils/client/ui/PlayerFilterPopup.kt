@@ -1,7 +1,8 @@
 package dev.henny.hugoutils.client.ui
 
-import dev.henny.hugoutils.client.config.ConfigManager
+import dev.henny.hugoutils.client.config.GlowStyle
 import dev.henny.hugoutils.client.config.PlayerFilter
+import dev.henny.hugoutils.ui.TextFieldLogic
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
@@ -13,6 +14,7 @@ import kotlin.math.roundToInt
 
 class PlayerFilterPopup(
     private val filter: PlayerFilter,
+    private val defaultColor: () -> GlowStyle,
     private val onChange: () -> Unit
 ) : ConfigPopup {
     private val client = MinecraftClient.getInstance()
@@ -26,7 +28,10 @@ class PlayerFilterPopup(
     private var add = UiRect(0, 0, 0, 0)
     private var resetColor = UiRect(0, 0, 0, 0)
     private var listArea = UiRect(0, 0, 0, 0)
-    private var inputText = ""
+    private val inputField = TextFieldLogic(maxLength = 36)
+    private var inputText: String
+        get() = inputField.text
+        set(value) = inputField.setText(value)
     private var focused = false
     private var modeHits = emptyList<Pair<PlayerFilter.Mode, UiRect>>()
     private val playerHits = ArrayList<PlayerHit>()
@@ -77,7 +82,7 @@ class PlayerFilterPopup(
         lastMouseX = mouseX.toDouble()
         lastMouseY = mouseY.toDouble()
         val font = client.textRenderer
-        val style = ConfigManager.config.playerGlow
+        val style = defaultColor()
 
         UiDraw.fill(context, 0, 0, client.window.scaledWidth, client.window.scaledHeight, 0xB0000000.toInt())
         UiDraw.panel(context, frame, HugoTheme.panel, HugoTheme.panelBorder)
@@ -196,9 +201,9 @@ class PlayerFilterPopup(
         editingEntry?.let { entry ->
             if (resetColor.contains(mouseX, mouseY)) {
                 entry.customColor = false
-                entry.hue = ConfigManager.config.playerGlow.hue
-                entry.saturation = ConfigManager.config.playerGlow.saturation
-                entry.brightness = ConfigManager.config.playerGlow.brightness
+                entry.hue = defaultColor().hue
+                entry.saturation = defaultColor().saturation
+                entry.brightness = defaultColor().brightness
                 onChange()
                 return true
             }
@@ -258,9 +263,17 @@ class PlayerFilterPopup(
             if (colorPicker.keyPressed(it, input)) return true
         }
         if (!focused) return false
+        if (input.isPaste) {
+            inputField.paste(client.keyboard.clipboard)
+            return true
+        }
+        if (input.isCopy) {
+            client.keyboard.clipboard = if (inputField.selection == null) inputText else inputField.copy()
+            return true
+        }
         return when (input.key()) {
             GLFW.GLFW_KEY_BACKSPACE -> {
-                if (inputText.isNotEmpty()) inputText = inputText.dropLast(1)
+                inputField.backspace()
                 true
             }
             GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
@@ -360,14 +373,14 @@ class PlayerFilterPopup(
         val uuid = PlayerFilter.parseUuid(value)
         val name = if (uuid == null) value else ""
         if (filter.find(name, uuid) == null) {
-            filter.toggle(name, uuid, ConfigManager.config.playerGlow)
+            filter.toggle(name, uuid, defaultColor())
         }
         filter.find(name, uuid)?.let {
             editingKey = PlayerFilter.entryKey(it)
             if (!it.customColor) {
-                it.hue = ConfigManager.config.playerGlow.hue
-                it.saturation = ConfigManager.config.playerGlow.saturation
-                it.brightness = ConfigManager.config.playerGlow.brightness
+                it.hue = defaultColor().hue
+                it.saturation = defaultColor().saturation
+                it.brightness = defaultColor().brightness
             }
         }
         inputText = ""

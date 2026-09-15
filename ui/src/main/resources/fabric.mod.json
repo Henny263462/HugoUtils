@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils-ui",
+  "version": "${version}",
+  "name": "HugoUtils UI",
+  "description": "Reusable, core-independent UI toolkit for HugoUtils modules.",
+  "authors": ["henny"],
+  "license": "Apache-2.0",
+  "environment": "client",
+  "entrypoints": {},
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

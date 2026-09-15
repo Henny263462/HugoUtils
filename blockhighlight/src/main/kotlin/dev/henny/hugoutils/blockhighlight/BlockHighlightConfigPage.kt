@@ -1,12 +1,12 @@
 package dev.henny.hugoutils.blockhighlight
 
 import dev.henny.hugoutils.client.config.ConfigManager
-import dev.henny.hugoutils.client.ui.ColorPicker
 import dev.henny.hugoutils.client.ui.ConfigCategory
 import dev.henny.hugoutils.client.ui.ConfigPage
 import dev.henny.hugoutils.client.ui.HugoTheme
-import dev.henny.hugoutils.client.ui.UiDraw
-import dev.henny.hugoutils.client.ui.UiRect
+import dev.henny.hugoutils.ui.ColorPicker
+import dev.henny.hugoutils.ui.UiDraw
+import dev.henny.hugoutils.ui.UiRect
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput

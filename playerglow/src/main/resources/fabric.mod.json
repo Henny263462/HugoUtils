@@ -26,6 +26,7 @@
     "fabric-language-kotlin": ">=${kotlin_loader_version}",
     "fabric-api": "*",
     "minecraft": "${minecraft_version}",
-    "hugoutils-core": "${version}"
+    "hugoutils-core": "${version}",
+    "hugoutils-ui": "${version}"
   }
 }

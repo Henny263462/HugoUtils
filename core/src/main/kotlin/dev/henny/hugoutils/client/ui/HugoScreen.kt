@@ -6,6 +6,8 @@ import dev.henny.hugoutils.client.config.GlintStyle
 import dev.henny.hugoutils.client.config.GlintChangeListener
 import dev.henny.hugoutils.client.config.GlowStyle
 import dev.henny.hugoutils.update.UpdateManager
+import dev.henny.hugoutils.ui.NavigationEntry
+import dev.henny.hugoutils.ui.UiNavigation
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.Mouse
 import net.minecraft.client.gui.Click
@@ -17,9 +19,12 @@ import net.minecraft.text.Text
 import org.lwjgl.glfw.GLFW
 import kotlin.math.roundToInt
 
-class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
-    private var category = ConfigCategory.DROPPED_GLOW
+class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
+    private var category = ConfigCategory.entries.firstOrNull { it.id == initialPageId }
+        ?: ConfigCategory.DROPPED_GLOW
+    private var selectedPageId = initialPageId ?: ConfigCategory.DROPPED_GLOW.id
     private var visualsExpanded = true
+    private val expandedNavigation = mutableSetOf(ConfigCategory.VISUALS.id)
     private var pageAnim = 1f
     private var scroll = 0
     private var maxScroll = 0
@@ -46,8 +51,8 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
     private var sidebar = UiRect(0, 0, 0, 0)
     private var content = UiRect(0, 0, 0, 0)
     private var scissor = UiRect(0, 0, 0, 0)
-    private val navHits = ArrayList<Pair<ConfigCategory, UiRect>>()
-    private val footerHits = ArrayList<Pair<ConfigCategory, UiRect>>()
+    private val navHits = ArrayList<Pair<NavigationEntry, UiRect>>()
+    private val footerHits = ArrayList<Pair<NavigationEntry, UiRect>>()
     private var previousCategory = ConfigCategory.DROPPED_GLOW
 
     private var droppedCard = GlowCardLayout()
@@ -73,11 +78,12 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         droppedFilter = ItemFilterPanel(textRenderer, ConfigManager.config.droppedItemGlow.filter) { persist() }
         heldGlowFilter = ItemFilterPanel(textRenderer, ConfigManager.config.heldItemGlow.filter) { persist() }
         glintFilter = ItemFilterPanel(textRenderer, ConfigManager.config.heldGlint.filter) { persist() }
+        registerVisualPages()
         expandedDropped = true
         expandedGlint = true
         expandedHeldGlow = true
         expandedPlayerGlow = true
-        ConfigCategory.entries.flatMap(ConfigPages::forCategory).forEach { it.resetUi() }
+        UiNavigation.registry.entries().flatMap { UiNavigation.registry.pages(it.id) }.forEach { it.resetUi() }
         relayout()
     }
 
@@ -143,16 +149,17 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         scissor = UiRect(content.x, content.y, content.w, content.h)
 
         navHits.clear()
-        val footerStart = sidebar.bottom() - 16 - 4 - ConfigCategory.footerEntries.size * 20
-        val sidebarEntries = ConfigCategory.navEntries.flatMap { entry ->
-            if (entry == ConfigCategory.VISUALS && visualsExpanded) listOf(entry) + ConfigCategory.visualEntries
-            else listOf(entry)
+        val registry = UiNavigation.registry
+        val footerEntries = registry.footerEntries()
+        val footerStart = sidebar.bottom() - 16 - 4 - footerEntries.size * 20
+        val sidebarEntries = registry.roots().flatMap { entry ->
+            if (entry.id in expandedNavigation) listOf(entry) + registry.children(entry.id) else listOf(entry)
         }
         val navStep = ((footerStart - (sidebar.y + 36)) / sidebarEntries.size.coerceAtLeast(1))
             .coerceIn(13, 20)
         var navY = sidebar.y + 36
         for (entry in sidebarEntries) {
-            val indent = if (entry.visualChild) 10 else 0
+            val indent = if (entry.parentId != null) 10 else 0
             navHits += entry to UiRect(sidebar.x + 8 + indent, navY - 3, sidebar.w - 16 - indent, navStep.coerceAtMost(18))
             navY += navStep
         }
@@ -160,64 +167,99 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         footerHits.clear()
         // Version sits at bottom - 16; footer dropdowns stack above it.
         var footerY = footerStart
-        for (entry in ConfigCategory.footerEntries) {
+        for (entry in footerEntries) {
             footerHits += entry to UiRect(sidebar.x + 8, footerY, sidebar.w - 16, 18)
             footerY += 20
         }
 
-        val compact = height < 300
-        val pickerW = if (compact) 84 else 100
-        val pickerH = if (compact) 56 else 68
-        val cardW = content.w
-        droppedPicker.layout(content.x + 10, 0, pickerW, pickerH)
-        heldGlowPicker.layout(content.x + 10, 0, pickerW, pickerH)
-        playerGlowPicker.layout(content.x + 10, 0, pickerW, pickerH)
-        glintPicker.layout(content.x + 10, 0, pickerW, pickerH)
-
-        if (isBuiltInVisual()) {
-            val visualHeight = when (category) {
-                ConfigCategory.DROPPED_GLOW -> glowCardHeight(true, droppedPicker, cardW, droppedFilter)
-                ConfigCategory.HAND_GLINT -> glintCardHeight(true, glintPicker, cardW, glintFilter)
-                ConfigCategory.HAND_GLOW -> glowCardHeight(true, heldGlowPicker, cardW, heldGlowFilter)
-                ConfigCategory.PLAYER_GLOW -> glowCardHeight(true, playerGlowPicker, cardW, null)
-                else -> 0
+        val pages = extraPages()
+        if (pages.isNotEmpty()) {
+            var y = scissor.y + 4 - scroll
+            var totalH = 4
+            for (page in pages) {
+                val h = page.layout(content.x, y, content.w, scissor.h)
+                totalH += h + 8
+                y += h + 8
             }
-            val totalH = 8 + visualHeight + 8
             maxScroll = (totalH - scissor.h).coerceAtLeast(0)
-            scroll = scroll.coerceIn(0, maxScroll)
-
-            val y = scissor.y + 4 - scroll
-            when (category) {
-                ConfigCategory.DROPPED_GLOW ->
-                    layoutGlowCard(droppedCard, content.x, y, cardW, droppedPicker, pickerW, pickerH, true, droppedFilter)
-                ConfigCategory.HAND_GLINT ->
-                    layoutGlintCard(glintCard, content.x, y, cardW, glintPicker, pickerW, pickerH, true, glintFilter)
-                ConfigCategory.HAND_GLOW ->
-                    layoutGlowCard(heldGlowCard, content.x, y, cardW, heldGlowPicker, pickerW, pickerH, true, heldGlowFilter)
-                ConfigCategory.PLAYER_GLOW ->
-                    layoutGlowCard(playerGlowCard, content.x, y, cardW, playerGlowPicker, pickerW, pickerH, true, null)
-                else -> Unit
-            }
         } else {
-            val pages = extraPages()
-            if (pages.isNotEmpty()) {
-                var y = scissor.y + 4 - scroll
-                var totalH = 4
-                for (page in pages) {
-                    val h = page.layout(content.x, y, content.w, scissor.h)
-                    totalH += h + 8
-                    y += h + 8
-                }
-                maxScroll = (totalH - scissor.h).coerceAtLeast(0)
-            } else {
-                maxScroll = 0
-            }
-            scroll = scroll.coerceIn(0, maxScroll)
+            maxScroll = 0
         }
+        scroll = scroll.coerceIn(0, maxScroll)
     }
 
     private fun sideBySide(cardW: Int, picker: ColorPicker): Boolean =
         cardW - 20 - picker.width() - 12 >= 140
+
+    private fun registerVisualPages() {
+        BUILT_IN_VISUALS.forEach { visual ->
+            val entry = UiNavigation.registry.entry(visual.id) ?: return@forEach
+            ConfigPages.register(
+                entry,
+                VisualConfigPage(visual.id, ::layoutVisualPage, ::renderVisualPage, visual)
+            )
+        }
+    }
+
+    private fun layoutVisualPage(
+        visual: ConfigCategory,
+        x: Int,
+        y: Int,
+        width: Int,
+        availableHeight: Int
+    ): Int {
+        val compact = availableHeight < 276
+        val pickerW = if (compact) 84 else 100
+        val pickerH = if (compact) 56 else 68
+        return when (visual) {
+            ConfigCategory.DROPPED_GLOW -> {
+                droppedPicker.layout(x + 10, y + HEADER_H, pickerW, pickerH)
+                layoutGlowCard(droppedCard, x, y, width, droppedPicker, pickerW, pickerH, true, droppedFilter)
+                glowCardHeight(true, droppedPicker, width, droppedFilter)
+            }
+            ConfigCategory.HAND_GLINT -> {
+                glintPicker.layout(x + 10, y + HEADER_H + 24, pickerW, pickerH)
+                layoutGlintCard(glintCard, x, y, width, glintPicker, pickerW, pickerH, true, glintFilter)
+                glintCardHeight(true, glintPicker, width, glintFilter)
+            }
+            ConfigCategory.HAND_GLOW -> {
+                heldGlowPicker.layout(x + 10, y + HEADER_H, pickerW, pickerH)
+                layoutGlowCard(heldGlowCard, x, y, width, heldGlowPicker, pickerW, pickerH, true, heldGlowFilter)
+                glowCardHeight(true, heldGlowPicker, width, heldGlowFilter)
+            }
+            ConfigCategory.PLAYER_GLOW -> {
+                playerGlowPicker.layout(x + 10, y + HEADER_H, pickerW, pickerH)
+                layoutGlowCard(playerGlowCard, x, y, width, playerGlowPicker, pickerW, pickerH, true, null)
+                glowCardHeight(true, playerGlowPicker, width, null)
+            }
+            else -> 0
+        }
+    }
+
+    private fun renderVisualPage(visual: ConfigCategory, context: DrawContext, mouseX: Int, mouseY: Int) {
+        when (visual) {
+            ConfigCategory.DROPPED_GLOW -> drawGlowCard(
+                context, droppedCard, "Dropped Item Glow", DROPPED_HELPER,
+                ConfigManager.config.droppedItemGlow, toggleAnimDropped, droppedPicker,
+                SliderId.DROPPED_TRANSPARENCY, SliderId.DROPPED_INTENSITY, SliderId.DROPPED_WIDTH,
+                true, droppedFilter
+            )
+            ConfigCategory.HAND_GLINT -> drawGlintCard(context)
+            ConfigCategory.HAND_GLOW -> drawGlowCard(
+                context, heldGlowCard, "Hand-Glow", HELD_GLOW_HELPER,
+                ConfigManager.config.heldItemGlow, toggleAnimHeldGlow, heldGlowPicker,
+                SliderId.HELD_TRANSPARENCY, SliderId.HELD_INTENSITY, SliderId.HELD_WIDTH,
+                true, heldGlowFilter
+            )
+            ConfigCategory.PLAYER_GLOW -> drawGlowCard(
+                context, playerGlowCard, "Player Glow", PLAYER_GLOW_HELPER,
+                ConfigManager.config.playerGlow, toggleAnimPlayerGlow, playerGlowPicker,
+                SliderId.PLAYER_TRANSPARENCY, SliderId.PLAYER_INTENSITY, SliderId.PLAYER_WIDTH,
+                true, null
+            )
+            else -> Unit
+        }
+    }
 
     private fun glowCardHeight(expanded: Boolean, picker: ColorPicker, cardW: Int, filter: ItemFilterPanel?): Int {
         if (!expanded) {
@@ -348,15 +390,16 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
 
     private fun drawNavEntry(
         context: DrawContext,
-        entry: ConfigCategory,
+        entry: NavigationEntry,
         hit: UiRect,
         mouseX: Int,
         mouseY: Int,
         dropdown: Boolean
     ) {
         val hovered = hit.contains(mouseX.toDouble(), mouseY.toDouble())
-        val selected = entry == category ||
-            (entry == ConfigCategory.VISUALS && category.visualChild)
+        val selected = entry.id == selectedPageId ||
+            (entry.id == ConfigCategory.VISUALS.id &&
+                UiNavigation.registry.descendants(entry.id).any { it.id == selectedPageId })
         val textY = hit.y + ((hit.h - 8) / 2).coerceAtLeast(1)
         if (selected) {
             UiDraw.fill(context, hit, HugoTheme.accentSoft)
@@ -380,10 +423,10 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 color,
                 false
             )
-        } else if (entry == ConfigCategory.VISUALS) {
+        } else if (UiNavigation.registry.children(entry.id).isNotEmpty()) {
             context.drawText(
                 textRenderer,
-                if (visualsExpanded) "▾" else "▸",
+                if (entry.id in expandedNavigation) "▾" else "▸",
                 hit.x + 6,
                 textY,
                 HugoTheme.textMuted,
@@ -401,55 +444,28 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
             context.drawText(
                 textRenderer,
                 UiDraw.ellipsize(textRenderer, entry.title, hit.w - 12),
-                hit.x + if (entry.visualChild) 5 else 8,
+                hit.x + if (entry.parentId != null) 5 else 8,
                 textY,
                 color,
                 false
             )
         }
-        if (dropdown && entry == ConfigCategory.UPDATES && UpdateManager.hasUpdate() && !selected) {
+        if (dropdown && entry.id == ConfigCategory.UPDATES.id && UpdateManager.hasUpdate() && !selected) {
             context.fill(hit.right() - 8, hit.y + 7, hit.right() - 4, hit.y + 11, HugoTheme.accent)
         }
     }
 
     private fun drawContent(context: DrawContext, mouseX: Int, mouseY: Int) {
         context.enableScissor(scissor.x, scissor.y, scissor.right(), scissor.bottom())
-        if (isBuiltInVisual()) {
-            when (category) {
-                ConfigCategory.DROPPED_GLOW -> drawGlowCard(
-                    context, droppedCard, "Dropped Item Glow", DROPPED_HELPER,
-                    ConfigManager.config.droppedItemGlow, toggleAnimDropped, droppedPicker,
-                    SliderId.DROPPED_TRANSPARENCY, SliderId.DROPPED_INTENSITY, SliderId.DROPPED_WIDTH,
-                    true, droppedFilter
-                )
-                ConfigCategory.HAND_GLINT -> drawGlintCard(context)
-                ConfigCategory.HAND_GLOW -> drawGlowCard(
-                    context, heldGlowCard, "Hand-Glow", HELD_GLOW_HELPER,
-                    ConfigManager.config.heldItemGlow, toggleAnimHeldGlow, heldGlowPicker,
-                    SliderId.HELD_TRANSPARENCY, SliderId.HELD_INTENSITY, SliderId.HELD_WIDTH,
-                    true, heldGlowFilter
-                )
-                ConfigCategory.PLAYER_GLOW -> drawGlowCard(
-                    context, playerGlowCard, "Player Glow", PLAYER_GLOW_HELPER,
-                    ConfigManager.config.playerGlow, toggleAnimPlayerGlow, playerGlowPicker,
-                    SliderId.PLAYER_TRANSPARENCY, SliderId.PLAYER_INTENSITY, SliderId.PLAYER_WIDTH,
-                    true, null
-                )
-                else -> Unit
-            }
+        val pages = extraPages()
+        if (pages.isNotEmpty()) {
+            pages.forEach { it.render(context, mouseX, mouseY) }
         } else {
-            val pages = extraPages()
-            if (pages.isNotEmpty()) {
-                for (page in pages) {
-                    page.render(context, mouseX, mouseY)
-                }
-            } else {
-                UiDraw.panel(context, scissor.x, scissor.y + 8, scissor.w, 40, HugoTheme.card, HugoTheme.cardBorder)
-                context.drawText(textRenderer, "Bald verfügbar", scissor.x + 12, scissor.y + 22, HugoTheme.text, false)
-            }
+            UiDraw.panel(context, scissor.x, scissor.y + 8, scissor.w, 40, HugoTheme.card, HugoTheme.cardBorder)
+            context.drawText(textRenderer, "Bald verfügbar", scissor.x + 12, scissor.y + 22, HugoTheme.text, false)
         }
         context.disableScissor()
-        if (isBuiltInVisual() || extraPages().isNotEmpty()) {
+        if (pages.isNotEmpty()) {
             UiDraw.scrollbar(context, scissor, scroll, maxScroll)
         }
         if (isBuiltInVisual()) {
@@ -586,17 +602,22 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
 
         for ((entry, hit) in navHits) {
             if (hit.contains(mx, my)) {
-                if (entry == ConfigCategory.VISUALS) {
-                    visualsExpanded = !visualsExpanded
-                    if (category == ConfigCategory.VISUALS) category = ConfigCategory.DROPPED_GLOW
+                if (UiNavigation.registry.children(entry.id).isNotEmpty()) {
+                    if (!expandedNavigation.add(entry.id)) expandedNavigation.remove(entry.id)
+                    visualsExpanded = ConfigCategory.VISUALS.id in expandedNavigation
+                    if (selectedPageId == ConfigCategory.VISUALS.id) {
+                        category = ConfigCategory.DROPPED_GLOW
+                        selectedPageId = category.id
+                    }
                     scroll = 0
                     relayout()
                     unfocusAll()
                     return true
                 }
-                if (entry.available && entry != category) {
+                if (entry.available && entry.id != selectedPageId) {
                     previousCategory = if (category.footer) previousCategory else category
-                    category = entry
+                    ConfigCategory.entries.firstOrNull { it.id == entry.id }?.let { category = it }
+                    selectedPageId = entry.id
                     pageAnim = 0f
                     scroll = 0
                 }
@@ -607,13 +628,15 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         for ((entry, hit) in footerHits) {
             if (hit.contains(mx, my)) {
                 if (entry.available) {
-                    if (entry == category) {
+                    if (entry.id == selectedPageId) {
                         // Collapse dropdown back to the previous main tab.
                         category = previousCategory.takeUnless { it.footer || it == ConfigCategory.VISUALS }
                             ?: ConfigCategory.DROPPED_GLOW
+                        selectedPageId = category.id
                     } else {
                         if (!category.footer) previousCategory = category
-                        category = entry
+                        ConfigCategory.entries.firstOrNull { it.id == entry.id }?.let { category = it }
+                        selectedPageId = entry.id
                     }
                     pageAnim = 0f
                     scroll = 0
@@ -661,7 +684,12 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
                 return true
             }
             if (category == ConfigCategory.PLAYER_GLOW && playerGlowCard.filterButton.contains(mx, my)) {
-                PopupManager.open(PlayerFilterPopup(ConfigManager.config.playerGlow.playerFilter) { persist() })
+                PopupManager.open(
+                    PlayerFilterPopup(
+                        ConfigManager.config.playerGlow.playerFilter,
+                        { ConfigManager.config.playerGlow }
+                    ) { persist() }
+                )
                 return true
             }
             if (category == ConfigCategory.HAND_GLINT && glintCard.filterButton.contains(mx, my)) {
@@ -863,9 +891,10 @@ class HugoScreen : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
         return super.charTyped(input)
     }
 
-    private fun extraPages(): List<ConfigPage> = ConfigPages.forCategory(category)
+    private fun extraPages(): List<dev.henny.hugoutils.ui.UiPage> = ConfigPages.forId(selectedPageId)
 
-    private fun isBuiltInVisual(): Boolean = category in BUILT_IN_VISUALS
+    private fun isBuiltInVisual(): Boolean =
+        selectedPageId in BUILT_IN_VISUALS.map { it.id }
 
     private fun titleHit(card: UiRect, toggle: UiRect, helper: UiRect, mx: Double, my: Double): Boolean {
         return mx >= card.x && mx < helper.x - 2 &&

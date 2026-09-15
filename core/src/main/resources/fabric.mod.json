@@ -25,6 +25,7 @@
     "hugoutils-core.mixins.json"
   ],
   "depends": {
+    "hugoutils-ui": "${version}",
     "fabricloader": ">=${loader_version}",
     "fabric-language-kotlin": ">=${kotlin_loader_version}",
     "fabric-api": "*",

@@ -11,6 +11,7 @@ pluginManagement {
 rootProject.name = "hugoutils"
 
 include("core")
+include("ui")
 include("itemglow")
 include("playerglow")
 include("blockhighlight")

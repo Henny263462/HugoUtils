@@ -1,9 +1,6 @@
 package dev.henny.hugoutils.client.config
 
-interface HsvColor {
-    var hue: Float
-    var saturation: Float
-    var brightness: Float
+interface HsvColor : dev.henny.hugoutils.ui.HsvColor {
 
     fun hex(): String
     fun setFromHex(hex: String): Boolean

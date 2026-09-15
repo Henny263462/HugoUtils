@@ -2,6 +2,7 @@ package dev.henny.hugoutils.client.ui
 
 import dev.henny.hugoutils.api.ApiConfig
 import dev.henny.hugoutils.api.AuthApiClient
+import dev.henny.hugoutils.ui.TextFieldLogic
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
@@ -16,7 +17,7 @@ class SignInConfigPage : ConfigPage {
     private var openButton = UiRect(0, 0, 0, 0)
     private var codeInput = UiRect(0, 0, 0, 0)
     private var loginButton = UiRect(0, 0, 0, 0)
-    private var code = ""
+    private val code = TextFieldLogic(maxLength = CODE_LENGTH)
     private var focused = false
     private var status = "Öffne zuerst die Anmeldeseite und übernimm den sechsstelligen Code."
     private var statusError = false
@@ -82,19 +83,19 @@ class SignInConfigPage : ConfigPage {
     override fun keyPressed(input: KeyInput): Boolean {
         if (!focused) return false
         if (input.isPaste) {
-            code = normalizeCode(client.keyboard.clipboard)
-            status = if (code.length == CODE_LENGTH) "Code eingefügt – bereit zur Anmeldung." else
+            code.setText(normalizeCode(client.keyboard.clipboard))
+            status = if (code.text.length == CODE_LENGTH) "Code eingefügt – bereit zur Anmeldung." else
                 "Zwischenablage enthält keinen vollständigen Login-Code."
-            statusError = code.length != CODE_LENGTH
+            statusError = code.text.length != CODE_LENGTH
             return true
         }
         if (input.isCopy) {
-            if (code.isNotEmpty()) client.keyboard.clipboard = code
+            if (code.text.isNotEmpty()) client.keyboard.clipboard = code.text
             return true
         }
         return when (input.key()) {
             GLFW.GLFW_KEY_BACKSPACE -> {
-                if (code.isNotEmpty()) code = code.dropLast(1)
+                code.backspace()
                 true
             }
             GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
@@ -110,10 +111,10 @@ class SignInConfigPage : ConfigPage {
     }
 
     override fun charTyped(input: CharInput): Boolean {
-        if (!focused || !input.isValidChar || code.length >= CODE_LENGTH) return false
+        if (!focused || !input.isValidChar || code.text.length >= CODE_LENGTH) return false
         val value = input.asString().uppercase()
         if (value.length != 1 || value[0] !in CODE_CHARS) return false
-        code += value
+        code.insert(value)
         return true
     }
 
@@ -124,15 +125,15 @@ class SignInConfigPage : ConfigPage {
         focused = false
         status = "Minecraft-Konto wird bestätigt …"
         statusError = false
-        AuthApiClient.login(code) { message, error ->
+        AuthApiClient.login(code.text) { message, error ->
             working = false
             status = message.removePrefix("HugoUtils: ")
             statusError = error
-            if (!error) code = ""
+            if (!error) code.setText("")
         }
     }
 
-    private fun canSubmit(): Boolean = !working && code.length == CODE_LENGTH
+    private fun canSubmit(): Boolean = !working && code.text.length == CODE_LENGTH
 
     private fun normalizeCode(value: String): String =
         value.uppercase().filter { it in CODE_CHARS }.take(CODE_LENGTH)
@@ -146,11 +147,11 @@ class SignInConfigPage : ConfigPage {
             HugoTheme.inset,
             if (focused) HugoTheme.accent else if (hovered) HugoTheme.accentMuted else HugoTheme.cardBorder
         )
-        val shown = if (code.isEmpty()) "ABC123" else code
-        val color = if (code.isEmpty()) HugoTheme.textDim else HugoTheme.text
+        val shown = if (code.text.isEmpty()) "ABC123" else code.text
+        val color = if (code.text.isEmpty()) HugoTheme.textDim else HugoTheme.text
         context.drawText(font, shown, codeInput.x + 7, codeInput.y + 8, color, false)
-        if (focused && code.isNotEmpty() && (caretTicks / 10) % 2 == 0) {
-            val caretX = codeInput.x + 7 + font.getWidth(code)
+        if (focused && code.text.isNotEmpty() && (caretTicks / 10) % 2 == 0) {
+            val caretX = codeInput.x + 7 + font.getWidth(code.text)
             UiDraw.fill(context, caretX, codeInput.y + 5, 1, codeInput.h - 10, HugoTheme.accent)
         }
     }

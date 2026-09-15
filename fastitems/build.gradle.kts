@@ -25,6 +25,7 @@ dependencies {
     modImplementation("net.fabricmc.fabric-api:fabric-api:${rootProject.property("fabric_version")}")
 
     common(project(":core", configuration = "namedElements")) { isTransitive = false }
+    common(project(":ui", configuration = "namedElements")) { isTransitive = false }
 }
 
 tasks.processResources {

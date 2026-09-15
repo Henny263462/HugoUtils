@@ -1,8 +1,9 @@
 package dev.henny.hugoutils.client.gui.capture
 
 import dev.henny.hugoutils.client.ui.HugoTheme
-import dev.henny.hugoutils.client.ui.UiDraw
-import dev.henny.hugoutils.client.ui.UiRect
+import dev.henny.hugoutils.ui.TextFieldLogic
+import dev.henny.hugoutils.ui.UiDraw
+import dev.henny.hugoutils.ui.UiRect
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.screen.Screen
@@ -24,6 +25,7 @@ class GuiCaptureOverlay(
     private var close = UiRect(0, 0, 0, 0)
     private var meta = UiRect(0, 0, 0, 0)
     private val fieldRects = linkedMapOf<Field, UiRect>()
+    private val fieldEditors = mutableMapOf<Field, TextFieldLogic>()
     private var roleRect = UiRect(0, 0, 0, 0)
     private var status = "Snapshot eingefroren"
 
@@ -157,9 +159,20 @@ class GuiCaptureOverlay(
             return true
         }
         val field = focused ?: return false
+        val editor = editor(field)
+        if (input.isPaste) {
+            editor.paste(client.keyboard.clipboard)
+            setValue(field, editor.text)
+            return true
+        }
+        if (input.isCopy) {
+            client.keyboard.clipboard = if (editor.selection == null) editor.text else editor.copy()
+            return true
+        }
         return when (input.key()) {
             GLFW.GLFW_KEY_BACKSPACE -> {
-                setValue(field, value(field).dropLast(1))
+                editor.backspace()
+                setValue(field, editor.text)
                 true
             }
             GLFW.GLFW_KEY_TAB -> {
@@ -178,9 +191,16 @@ class GuiCaptureOverlay(
     fun charTyped(input: CharInput): Boolean {
         val field = focused ?: return false
         if (!input.isValidChar || value(field).length >= field.maxLength) return false
-        setValue(field, value(field) + input.asString())
+        val editor = editor(field)
+        editor.insert(input.asString())
+        setValue(field, editor.text)
         return true
     }
+
+    private fun editor(field: Field): TextFieldLogic =
+        fieldEditors.getOrPut(field) { TextFieldLogic(value(field), field.maxLength) }.also {
+            if (it.text != value(field)) it.setText(value(field))
+        }
 
     private fun export() {
         runCatching { GuiCaptureStore.save(snapshot, draft) }

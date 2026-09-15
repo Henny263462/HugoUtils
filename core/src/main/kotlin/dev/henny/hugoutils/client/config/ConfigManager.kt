@@ -202,6 +202,9 @@ object ConfigManager {
         if (tree.has("includePrereleases")) {
             config.includePrereleases = value.includePrereleases
         }
+        if (tree.has("uiDebugCommandsEnabled")) {
+            config.uiDebugCommandsEnabled = value.uiDebugCommandsEnabled
+        }
         val dropped = tree.getAsJsonObject("droppedItemGlow")
         val held = tree.getAsJsonObject("heldItemGlow")
         val player = tree.getAsJsonObject("playerGlow")

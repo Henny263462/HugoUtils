@@ -24,6 +24,7 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${rootProject.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${rootProject.property("fabric_version")}")
 
+    include(project(":ui"))
     include(project(":core"))
     include(project(":itemglow"))
     include(project(":playerglow"))
@@ -31,6 +32,7 @@ dependencies {
     include(project(":fastitems"))
 
     // Load the bundled modules as classpath mods in the development runtime
+    common(project(":ui", configuration = "namedElements")) { isTransitive = false }
     common(project(":core", configuration = "namedElements")) { isTransitive = false }
     common(project(":itemglow", configuration = "namedElements")) { isTransitive = false }
     common(project(":playerglow", configuration = "namedElements")) { isTransitive = false }

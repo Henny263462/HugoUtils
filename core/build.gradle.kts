@@ -12,12 +12,19 @@ architectury {
     fabric()
 }
 
+val common = configurations.create("common")
+configurations.compileClasspath.get().extendsFrom(common)
+configurations.runtimeClasspath.get().extendsFrom(common)
+configurations["developmentFabric"].extendsFrom(common)
+
 dependencies {
     minecraft("com.mojang:minecraft:${rootProject.property("minecraft_version")}")
     mappings("net.fabricmc:yarn:${rootProject.property("yarn_mappings")}:v2")
     modImplementation("net.fabricmc:fabric-loader:${rootProject.property("loader_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${rootProject.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${rootProject.property("fabric_version")}")
+    common(project(":ui", configuration = "namedElements")) { isTransitive = false }
+    testImplementation(project(":ui", configuration = "namedElements"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }

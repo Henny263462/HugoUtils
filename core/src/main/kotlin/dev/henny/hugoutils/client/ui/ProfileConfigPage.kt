@@ -1,6 +1,7 @@
 package dev.henny.hugoutils.client.ui
 
 import dev.henny.hugoutils.client.config.ConfigManager
+import dev.henny.hugoutils.ui.TextFieldLogic
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
@@ -17,7 +18,10 @@ class ProfileConfigPage : ConfigPage {
     private var listFrame = UiRect(0, 0, 0, 0)
     private var actionBar = emptyList<Pair<Action, UiRect>>()
     private val profileHits = ArrayList<Pair<String, UiRect>>()
-    private var name = ""
+    private val nameField = TextFieldLogic(maxLength = 40)
+    private var name: String
+        get() = nameField.text
+        set(value) = nameField.setText(value)
     private var focused = false
     private var selected: String? = null
     private var pendingDelete: String? = null
@@ -206,9 +210,18 @@ class ProfileConfigPage : ConfigPage {
             }
         }
         if (!focused) return false
+        if (input.isPaste) {
+            nameField.paste(client.keyboard.clipboard)
+            pendingDelete = null
+            return true
+        }
+        if (input.isCopy) {
+            client.keyboard.clipboard = if (nameField.selection == null) name else nameField.copy()
+            return true
+        }
         return when (input.key()) {
             GLFW.GLFW_KEY_BACKSPACE -> {
-                if (name.isNotEmpty()) name = name.dropLast(1)
+                nameField.backspace()
                 true
             }
             GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
