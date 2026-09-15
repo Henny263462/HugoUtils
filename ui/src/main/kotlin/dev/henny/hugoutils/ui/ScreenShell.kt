@@ -13,11 +13,15 @@ abstract class ScreenShell(
     protected var sidebar = UiRect(0, 0, 0, 0)
     protected var content = UiRect(0, 0, 0, 0)
     protected val expandedParents = mutableSetOf<String>()
+    private val entrance = AnimatedFloat(0f, .22f, Easing.EASE_OUT)
+    protected val pageTransition = AnimatedFloat(1f, .18f, Easing.EASE_OUT)
 
     override fun shouldPause(): Boolean = false
 
     override fun init() {
         super.init()
+        entrance.snapTo(0f)
+        entrance.animateTo(1f)
         if (selectedPageId == null) {
             selectedPageId = navigation.roots().firstNotNullOfOrNull { root ->
                 navigation.children(root.id).firstOrNull()?.id ?: root.id
@@ -28,8 +32,8 @@ abstract class ScreenShell(
 
     protected open fun relayoutShell() {
         val margin = if (height < 280) 8 else 14
-        val panelWidth = (width - margin * 2).coerceIn(360, 680)
-        val panelHeight = (height - margin * 2).coerceIn(240, 460)
+        val panelWidth = (width - margin * 2).coerceIn(UiMetrics.PANEL_MIN_WIDTH, UiMetrics.PANEL_MAX_WIDTH)
+        val panelHeight = (height - margin * 2).coerceIn(UiMetrics.PANEL_MIN_HEIGHT, UiMetrics.PANEL_MAX_HEIGHT)
         panel = UiRect((width - panelWidth) / 2, (height - panelHeight) / 2, panelWidth, panelHeight)
         val sidebarWidth = (panelWidth * .27f).toInt().coerceIn(108, 142)
         sidebar = UiRect(panel.x, panel.y, sidebarWidth, panelHeight)
@@ -41,7 +45,17 @@ abstract class ScreenShell(
     }
 
     protected fun renderShell(context: DrawContext) {
-        UiDraw.panel(context, panel, UiDraw.theme.panel, UiDraw.theme.panelBorder)
-        UiDraw.fill(context, sidebar, UiDraw.theme.sidebar)
+        UiFrame.beginFrame()
+        entrance.update(UiFrame.deltaSeconds)
+        pageTransition.update(UiFrame.deltaSeconds)
+        val animatedPanel = panel.scaleFromCenter(.975f + .025f * entrance.value)
+        UiDraw.shadow(context, animatedPanel, entrance.value)
+        UiDraw.panel(context, animatedPanel, UiDraw.alpha(UiDraw.theme.panel, entrance.value), UiDraw.alpha(UiDraw.theme.panelBorder, entrance.value))
+        UiDraw.fill(context, sidebar, UiDraw.alpha(UiDraw.theme.sidebar, entrance.value))
+    }
+
+    protected fun animatePageChange() {
+        pageTransition.snapTo(0f)
+        pageTransition.animateTo(1f)
     }
 }

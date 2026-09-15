@@ -12,6 +12,11 @@ data class UiRect(val x: Int, val y: Int, val w: Int, val h: Int) {
     fun bottom(): Int = bottom
     fun contains(mouseX: Double, mouseY: Double): Boolean =
         mouseX >= x && mouseX < right && mouseY >= y && mouseY < bottom
+    fun scaleFromCenter(scale: Float): UiRect {
+        val width = (w * scale).toInt().coerceAtLeast(1)
+        val height = (h * scale).toInt().coerceAtLeast(1)
+        return UiRect(x + (w - width) / 2, y + (h - height) / 2, width, height)
+    }
 }
 
 data class Theme(
@@ -37,7 +42,11 @@ data class Theme(
     val knob: Int = 0xFFF7FAFC.toInt(),
     val comingSoon: Int = 0xFF3A4152.toInt(),
     val helper: Int = 0xFF7A8299.toInt(),
-    val glintPurple: Int = 0xFF9B5CFF.toInt()
+    val glintPurple: Int = 0xFF9B5CFF.toInt(),
+    val surfaceRaised: Int = 0xFF1A1F2A.toInt(),
+    val surfacePressed: Int = 0xFF10141C.toInt(),
+    val focusRing: Int = 0xFF9AECFF.toInt(),
+    val shadow: Int = 0x66000000
 ) {
     fun withAlpha(color: Int, alpha: Int): Int = ColorHelper.getArgb(
         alpha.coerceIn(0, 255), ColorHelper.getRed(color), ColorHelper.getGreen(color), ColorHelper.getBlue(color)
@@ -57,6 +66,20 @@ data class Theme(
             )
         }
     }
+}
+
+object UiMetrics {
+    const val SPACE_1 = 4
+    const val SPACE_2 = 8
+    const val SPACE_3 = 12
+    const val SPACE_4 = 16
+    const val CONTROL_HEIGHT = 22
+    const val COMPACT_HEIGHT = 18
+    const val CARD_PADDING = 12
+    const val PANEL_MIN_WIDTH = 360
+    const val PANEL_MAX_WIDTH = 720
+    const val PANEL_MIN_HEIGHT = 240
+    const val PANEL_MAX_HEIGHT = 480
 }
 
 interface HsvColor {
@@ -146,6 +169,14 @@ object UiDraw {
 
     fun lerp(current: Float, target: Float, speed: Float): Float =
         current + (target - current) * speed.coerceIn(0f, 1f)
+
+    fun alpha(color: Int, opacity: Float): Int =
+        theme.withAlpha(color, (ColorHelper.getAlpha(color) * opacity.coerceIn(0f, 1f)).toInt())
+
+    fun shadow(context: DrawContext, rect: UiRect, strength: Float = 1f) {
+        val color = alpha(theme.shadow, strength)
+        fill(context, rect.x + 3, rect.y + 4, rect.w, rect.h, color)
+    }
 
     fun wrap(renderer: TextRenderer, text: String, maxWidth: Int): List<String> = buildList {
         text.split('\n').forEach { paragraph ->

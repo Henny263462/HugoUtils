@@ -7,6 +7,8 @@ import dev.henny.hugoutils.client.config.GlintChangeListener
 import dev.henny.hugoutils.client.config.GlowStyle
 import dev.henny.hugoutils.update.UpdateManager
 import dev.henny.hugoutils.ui.NavigationEntry
+import dev.henny.hugoutils.ui.AnimatedFloat
+import dev.henny.hugoutils.ui.UiFrame
 import dev.henny.hugoutils.ui.UiNavigation
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.Mouse
@@ -25,7 +27,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     private var selectedPageId = initialPageId ?: ConfigCategory.DROPPED_GLOW.id
     private var visualsExpanded = true
     private val expandedNavigation = mutableSetOf(ConfigCategory.VISUALS.id)
-    private var pageAnim = 1f
+    private val pageTransition = AnimatedFloat(1f, .18f)
     private var scroll = 0
     private var maxScroll = 0
     private var draggingSlider: SliderId? = null
@@ -67,7 +69,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     override fun init() {
         super.init()
         PopupManager.close()
-        pageAnim = 1f
+        pageTransition.snapTo(1f)
         droppedPicker = ColorPicker(textRenderer) { persist() }
         heldGlowPicker = ColorPicker(textRenderer) { persist() }
         playerGlowPicker = ColorPicker(textRenderer) { persist() }
@@ -94,12 +96,13 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     }
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int, deltaTicks: Float) {
+        UiFrame.beginFrame()
         relayout()
         lastMouseX = mouseX.toDouble()
         lastMouseY = mouseY.toDouble()
         tooltipText = null
         val dt = deltaTicks.coerceIn(0.01f, 1.5f)
-        pageAnim = UiDraw.lerp(pageAnim, 1f, 0.25f * dt * 3f)
+        pageTransition.update(UiFrame.deltaSeconds)
         toggleAnimDropped = UiDraw.lerp(
             toggleAnimDropped,
             if (ConfigManager.config.droppedItemGlow.enabled) 1f else 0f,
@@ -457,6 +460,8 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
 
     private fun drawContent(context: DrawContext, mouseX: Int, mouseY: Int) {
         context.enableScissor(scissor.x, scissor.y, scissor.right(), scissor.bottom())
+        context.matrices.pushMatrix()
+        context.matrices.translate((1f - pageTransition.value) * 12f, 0f)
         val pages = extraPages()
         if (pages.isNotEmpty()) {
             pages.forEach { it.render(context, mouseX, mouseY) }
@@ -464,6 +469,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             UiDraw.panel(context, scissor.x, scissor.y + 8, scissor.w, 40, HugoTheme.card, HugoTheme.cardBorder)
             context.drawText(textRenderer, "Bald verfügbar", scissor.x + 12, scissor.y + 22, HugoTheme.text, false)
         }
+        context.matrices.popMatrix()
         context.disableScissor()
         if (pages.isNotEmpty()) {
             UiDraw.scrollbar(context, scissor, scroll, maxScroll)
@@ -618,7 +624,8 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
                     previousCategory = if (category.footer) previousCategory else category
                     ConfigCategory.entries.firstOrNull { it.id == entry.id }?.let { category = it }
                     selectedPageId = entry.id
-                    pageAnim = 0f
+                    pageTransition.snapTo(0f)
+                    pageTransition.animateTo(1f)
                     scroll = 0
                 }
                 unfocusAll()
@@ -638,7 +645,8 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
                         ConfigCategory.entries.firstOrNull { it.id == entry.id }?.let { category = it }
                         selectedPageId = entry.id
                     }
-                    pageAnim = 0f
+                    pageTransition.snapTo(0f)
+                    pageTransition.animateTo(1f)
                     scroll = 0
                 }
                 unfocusAll()

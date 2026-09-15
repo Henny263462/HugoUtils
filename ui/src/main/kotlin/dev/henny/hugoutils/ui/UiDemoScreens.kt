@@ -2,6 +2,8 @@ package dev.henny.hugoutils.ui
 
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
+import net.minecraft.client.input.CharInput
+import net.minecraft.client.input.KeyInput
 import net.minecraft.text.Text
 
 enum class UiDemo(val id: String, val title: String) {
@@ -27,11 +29,19 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
     private val toggle = Toggle(initialValue = true, onChange = {})
     private val slider = Slider(.65f)
     private val field = TextField(placeholder = "Text eingeben …")
+    private val tabs = Tabs(listOf("Allgemein", "Erweitert"), "Allgemein")
+    private val dropdown = Dropdown(listOf("Kompakt", "Komfortabel", "Groß")).apply { selected = "Komfortabel" }
     private val search = SearchList(
         listOf("minecraft:flame", "minecraft:smoke", "minecraft:portal", "minecraft:happy_villager")
     )
     private var toastButton = UiRect(0, 0, 0, 0)
     private var dialogButton = UiRect(0, 0, 0, 0)
+    private val toastControl = Button("Toast anzeigen", {
+        UiOverlays.host.show(Toast("UI-Toast funktioniert", kind = Toast.Kind.SUCCESS))
+    }, style = ButtonStyle.PRIMARY)
+    private val dialogControl = Button("Dialog öffnen", {
+        UiOverlays.host.open(Dialog("Beispiel", "Öffentlicher Dialog-Host", cancelLabel = "Abbrechen"))
+    })
 
     init {
         if (demo == UiDemo.NAVIGATION) {
@@ -72,15 +82,18 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
     }
 
     private fun renderGallery(context: DrawContext, mouseX: Int, mouseY: Int, x: Int, y: Int) {
-        val card = UiRect(x, y, content.w - 16, 120)
-        UiDraw.panel(context, card, UiDraw.theme.card, UiDraw.theme.border)
-        toggle.bounds = UiRect(x + 12, y + 16, 34, 14)
-        toggle.tick(.05f)
+        val card = UiRect(x, y, content.w - 16, 184)
+        Card(card, "Interaktive Controls").render(context, textRenderer, mouseX, mouseY)
+        toggle.bounds = UiRect(x + 12, y + 38, 34, 14)
         toggle.render(context, textRenderer, mouseX, mouseY)
-        slider.bounds = UiRect(x + 12, y + 50, card.w - 24, 12)
+        slider.bounds = UiRect(x + 12, y + 68, card.w - 24, 12)
         slider.render(context, textRenderer, mouseX, mouseY)
-        field.bounds = UiRect(x + 12, y + 78, card.w - 24, 20)
+        field.bounds = UiRect(x + 12, y + 94, card.w - 24, 20)
         field.render(context, textRenderer, mouseX, mouseY)
+        tabs.bounds = UiRect(x + 12, y + 124, (card.w - 30) / 2, UiMetrics.CONTROL_HEIGHT)
+        tabs.render(context, textRenderer, mouseX, mouseY)
+        dropdown.bounds = UiRect(tabs.bounds.right + 6, y + 124, card.w - tabs.bounds.w - 30, UiMetrics.CONTROL_HEIGHT)
+        dropdown.render(context, textRenderer, mouseX, mouseY)
     }
 
     private fun renderForm(context: DrawContext, mouseX: Int, mouseY: Int, x: Int, y: Int) {
@@ -88,7 +101,6 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
         field.bounds = UiRect(x, y + 22, content.w - 16, 20)
         field.render(context, textRenderer, mouseX, mouseY)
         toggle.bounds = UiRect(x, y + 56, 34, 14)
-        toggle.tick(.05f)
         toggle.render(context, textRenderer, mouseX, mouseY)
     }
 
@@ -106,12 +118,10 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
     private fun renderDialogDemo(context: DrawContext, mouseX: Int, mouseY: Int, x: Int, y: Int) {
         toastButton = UiRect(x, y, 120, 22)
         dialogButton = UiRect(x + 128, y, 120, 22)
-        Button("Toast anzeigen", {
-            UiOverlays.host.show(Toast("UI-Toast funktioniert", kind = Toast.Kind.SUCCESS))
-        }, toastButton).render(context, textRenderer, mouseX, mouseY)
-        Button("Dialog öffnen", {
-            UiOverlays.host.open(Dialog("Beispiel", "Öffentlicher Dialog-Host"))
-        }, dialogButton).render(context, textRenderer, mouseX, mouseY)
+        toastControl.bounds = toastButton
+        dialogControl.bounds = dialogButton
+        toastControl.render(context, textRenderer, mouseX, mouseY)
+        dialogControl.render(context, textRenderer, mouseX, mouseY)
     }
 
     private fun renderNavigation(context: DrawContext, x: Int, y: Int) {
@@ -132,18 +142,19 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
         val y = click.y()
         UiOverlays.host.active?.let { return it.mouseClicked(x, y) }
         if (demo == UiDemo.DIALOG) {
-            if (toastButton.contains(x, y)) {
-                UiOverlays.host.show(Toast("UI-Toast funktioniert", kind = Toast.Kind.SUCCESS))
-                return true
-            }
-            if (dialogButton.contains(x, y)) {
-                UiOverlays.host.open(Dialog("Beispiel", "Öffentlicher Dialog-Host"))
-                return true
-            }
+            if (toastControl.mouseClicked(x, y)) return true
+            if (dialogControl.mouseClicked(x, y)) return true
         }
-        return field.mouseClicked(x, y) || toggle.mouseClicked(x, y) || slider.mouseClicked(x, y) ||
+        return dropdown.mouseClicked(x, y) || tabs.mouseClicked(x, y) || field.mouseClicked(x, y) || toggle.mouseClicked(x, y) || slider.mouseClicked(x, y) ||
             super.mouseClicked(click, doubled)
     }
+
+    override fun keyPressed(input: KeyInput): Boolean =
+        field.keyPressed(input, { client.keyboard.clipboard }, { client.keyboard.clipboard = it }) ||
+            super.keyPressed(input)
+
+    override fun charTyped(input: CharInput): Boolean =
+        field.charTyped(input) || super.charTyped(input)
 
     override fun close() {
         UiOverlays.host.closeAll()

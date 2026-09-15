@@ -30,30 +30,44 @@ open class Dialog(
     protected var frame = UiRect(0, 0, 300, 120)
     private var confirm = UiRect(0, 0, 0, 0)
     private var cancel = UiRect(0, 0, 0, 0)
+    private val confirmButton = Button(confirmLabel, {
+        onConfirm()
+        UiOverlays.host.close()
+    }, style = ButtonStyle.PRIMARY)
+    private val cancelButton = cancelLabel?.let { label ->
+        Button(label, {
+            onCancel()
+            UiOverlays.host.close()
+        }, style = ButtonStyle.GHOST)
+    }
+    private var screenWidth = 0
+    private var screenHeight = 0
+    private val entrance = AnimatedFloat(0f, .18f, Easing.EASE_OUT).apply { animateTo(1f) }
     override fun layout(screenWidth: Int, screenHeight: Int) {
+        this.screenWidth = screenWidth
+        this.screenHeight = screenHeight
         frame = UiRect((screenWidth - 300) / 2, (screenHeight - 120) / 2, 300, 120)
         confirm = UiRect(frame.right - 82, frame.bottom - 30, 70, 20)
         cancel = UiRect(frame.right - 160, frame.bottom - 30, 70, 20)
+        confirmButton.bounds = confirm
+        cancelButton?.bounds = cancel
     }
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int) {
-        UiDraw.panel(context, frame, UiDraw.theme.panel, UiDraw.theme.panelBorder)
+        entrance.update(UiFrame.deltaSeconds)
+        val progress = entrance.value
+        val animatedFrame = frame.scaleFromCenter(.94f + .06f * progress)
+        UiDraw.fill(context, 0, 0, screenWidth, screenHeight, UiDraw.alpha(UiDraw.theme.overlay, progress * .55f))
+        UiDraw.shadow(context, animatedFrame, progress)
+        UiDraw.panel(context, animatedFrame, UiDraw.alpha(UiDraw.theme.panel, progress), UiDraw.alpha(UiDraw.theme.panelBorder, progress))
         val renderer = MinecraftClient.getInstance().textRenderer
         context.drawText(renderer, title, frame.x + 12, frame.y + 12, UiDraw.theme.text, false)
         context.drawText(renderer, UiDraw.ellipsize(renderer, message, frame.w - 24), frame.x + 12, frame.y + 36, UiDraw.theme.textMuted, false)
-        Button(confirmLabel, {}, confirm).render(context, renderer, mouseX, mouseY)
-        cancelLabel?.let { Button(it, {}, cancel).render(context, renderer, mouseX, mouseY) }
+        confirmButton.render(context, renderer, mouseX, mouseY)
+        cancelButton?.render(context, renderer, mouseX, mouseY)
     }
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {
-        if (confirm.contains(mouseX, mouseY)) {
-            onConfirm()
-            UiOverlays.host.close()
-            return true
-        }
-        if (cancelLabel != null && cancel.contains(mouseX, mouseY)) {
-            onCancel()
-            UiOverlays.host.close()
-            return true
-        }
+        if (confirmButton.mouseClicked(mouseX, mouseY)) return true
+        if (cancelButton?.mouseClicked(mouseX, mouseY) == true) return true
         return frame.contains(mouseX, mouseY)
     }
 }
@@ -66,7 +80,11 @@ class PopupHost {
     private val popupStack = ArrayDeque<Popup>()
     val active: Popup? get() = popupStack.lastOrNull()
     val popupCount: Int get() = popupStack.size
-    private data class ActiveToast(val toast: Toast, var remaining: Float)
+    private data class ActiveToast(
+        val toast: Toast,
+        var remaining: Float,
+        val visibility: AnimatedFloat = AnimatedFloat(0f, .18f).apply { animateTo(1f) }
+    )
     private val toastQueue = ArrayDeque<ActiveToast>()
     val toasts: List<Toast> get() = toastQueue.map { it.toast }
 
@@ -75,28 +93,34 @@ class PopupHost {
     fun closeAll() { popupStack.clear() }
     fun show(toast: Toast) { toastQueue += ActiveToast(toast, toast.durationSeconds) }
     fun update(deltaSeconds: Float) {
-        toastQueue.forEach { it.remaining -= deltaSeconds.coerceAtLeast(0f) }
-        while (toastQueue.firstOrNull()?.remaining?.let { it <= 0f } == true) toastQueue.removeFirst()
+        toastQueue.forEach {
+            it.remaining -= deltaSeconds.coerceAtLeast(0f)
+            if (it.remaining <= .2f) it.visibility.animateTo(0f)
+            it.visibility.update(deltaSeconds)
+        }
+        while (toastQueue.firstOrNull()?.let { it.remaining <= 0f && !it.visibility.running } == true) toastQueue.removeFirst()
     }
 
     fun renderToasts(context: DrawContext, renderer: TextRenderer, screenWidth: Int, screenHeight: Int) {
         toastQueue.takeLast(4).forEachIndexed { index, active ->
             val toast = active.toast
             val width = (renderer.getWidth(toast.message) + 20).coerceAtMost(screenWidth - 16)
-            val x = screenWidth - width - 8
+            val progress = active.visibility.value
+            val x = screenWidth - (width * progress).toInt() - 8
             val y = screenHeight - 28 - index * 26
             val accent = when (toast.kind) {
                 Toast.Kind.INFO -> UiDraw.theme.accent
                 Toast.Kind.SUCCESS -> UiDraw.theme.success
                 Toast.Kind.ERROR -> UiDraw.theme.danger
             }
-            UiDraw.panel(context, x, y, width, 20, UiDraw.theme.tooltip, accent)
+            UiDraw.shadow(context, UiRect(x, y, width, 20), .5f * progress)
+            UiDraw.panel(context, x, y, width, 20, UiDraw.alpha(UiDraw.theme.tooltip, progress), UiDraw.alpha(accent, progress))
             context.drawText(
                 renderer,
                 UiDraw.ellipsize(renderer, toast.message, width - 12),
                 x + 6,
                 y + 6,
-                UiDraw.theme.text,
+                UiDraw.alpha(UiDraw.theme.text, progress),
                 false
             )
         }
