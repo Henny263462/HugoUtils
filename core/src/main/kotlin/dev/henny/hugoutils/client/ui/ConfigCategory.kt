@@ -39,6 +39,7 @@ enum class ConfigCategory(
 
     GENERAL("general", "Allgemein", true, NavGroup.SETTINGS),
     PROFILES("profiles", "Profile", true, NavGroup.SETTINGS),
+    FEEDBACK("feedback", "Feedback", true, NavGroup.SETTINGS),
     UPDATES("updates", "Updates", true, NavGroup.SETTINGS),
     TOOLS("tools", "GUI Capture", true, NavGroup.SETTINGS),
     AFK_BOT("afk_bot", "AFK Bot", true, NavGroup.SETTINGS),

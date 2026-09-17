@@ -17,15 +17,27 @@ object ClientAuth {
         addProperty("serverId", serverId)
     }
 
-    fun codeBody(code: String, playerName: String, playerUuid: String): JsonObject = JsonObject().apply {
+    fun websiteChallengeBody(code: String, playerName: String, playerUuid: String): JsonObject = JsonObject().apply {
+        addProperty("action", "challenge")
         addProperty("code", code)
-        addProperty("loginCode", code)
         addProperty("playerName", playerName)
         addProperty("playerUuid", playerUuid)
     }
 
-    fun normalizeLoginCode(raw: String): String =
-        raw.filter { it.isLetterOrDigit() }.take(CODE_LENGTH)
+    fun websiteCompleteBody(code: String): JsonObject = JsonObject().apply {
+        addProperty("action", "complete")
+        addProperty("code", code)
+    }
+
+    fun normalizeWebsiteCode(raw: String): String =
+        raw.uppercase().filter { it in WEBSITE_CODE_ALPHABET }.take(CODE_LENGTH)
+
+    fun isValidWebsiteCode(code: String): Boolean =
+        code.length == CODE_LENGTH && code.all { it in WEBSITE_CODE_ALPHABET }
+
+    fun isWebsiteCodeChar(ch: Char): Boolean = ch.uppercaseChar() in WEBSITE_CODE_ALPHABET
+
+    fun normalizeLoginCode(raw: String): String = normalizeWebsiteCode(raw)
 
     fun isClientToken(value: String): Boolean = value.startsWith("hsm_cli_")
 
@@ -34,6 +46,13 @@ object ClientAuth {
             ?.takeIf { it.matches(SERVER_ID) }
             ?: throw ClientApiException(400, "invalid_response", "Der Login-Dienst hat ungültig geantwortet.")
         return Begin(serverId, JsonView.str(body, "expiresAt"))
+    }
+
+    fun parseWebsiteComplete(body: JsonObject): Pair<String, String> {
+        if (JsonView.bool(body, "ok") == false) {
+            throw ClientApiException(400, JsonView.str(body, "error") ?: "invalid_response", "Website-Anmeldung fehlgeschlagen.")
+        }
+        return (JsonView.str(body, "playerName", "name") ?: "") to (JsonView.str(body, "playerUuid", "uuid") ?: "")
     }
 
     fun parseComplete(body: JsonObject): Complete {
@@ -57,7 +76,7 @@ object ClientAuth {
     }
 
     fun userMessage(error: String?, fallback: String): String = when (error) {
-        "invalid_request" -> "Die Anmeldung wurde vom Server abgelehnt."
+        "invalid_request" -> "Die Anfrage wurde vom Server abgelehnt."
         "verification_failed" -> "Minecraft konnte deine Sitzung nicht bestätigen."
         "unauthorized" -> "Bitte erneut anmelden."
         "invalid_code" -> "Dieser Anmelde-Code ist ungültig oder abgelaufen."
@@ -67,6 +86,7 @@ object ClientAuth {
     }
 
     const val CODE_LENGTH = 6
+    const val WEBSITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     private val SERVER_ID = Regex("^[0-9a-f]{40}$")
 }
 

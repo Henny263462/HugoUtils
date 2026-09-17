@@ -23,16 +23,21 @@ object ClientApi {
         post("/mod/client/v1/auth/begin", ClientAuth.beginBody(playerName, playerUuid), auth = false)
     fun complete(playerName: String, playerUuid: String, serverId: String): JsonObject =
         post("/mod/client/v1/auth/complete", ClientAuth.completeBody(playerName, playerUuid, serverId), auth = false)
-    fun loginCode(code: String, playerName: String, playerUuid: String): JsonObject {
-        val body = ClientAuth.codeBody(code, playerName, playerUuid)
-        return try {
-            post("/mod/client/v1/auth/code", body, auth = false)
-        } catch (error: ClientApiException) {
-            if (error.status != 404) throw error
-            post("/mod/client/v1/auth/login", body, auth = false)
-        }
-    }
     fun revoke() = post("/mod/client/v1/auth/revoke", JsonObject())
+
+    fun feedback(force: Boolean = false) = cached("feedback", force) { get("/mod/client/v1/feedback") }
+    fun feedbackOne(id: String, force: Boolean = false) =
+        cached("feedback:$id", force) { get("/mod/client/v1/feedback/${enc(id)}") }
+    fun sendFeedback(kind: String, title: String, body: String): JsonObject {
+        val payload = JsonObject().apply {
+            addProperty("kind", kind)
+            addProperty("title", title)
+            addProperty("body", body)
+        }
+        val result = post("/mod/client/v1/feedback", payload)
+        invalidate("feedback")
+        return result
+    }
 
     fun me(force: Boolean = false) = cached("me", force) { get("/mod/client/v1/me") }
     fun features(force: Boolean = false) = cached("features", force) { get("/mod/client/v1/me/features") }

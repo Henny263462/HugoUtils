@@ -55,14 +55,53 @@ class ClientApiLogicTest {
     }
 
     @Test
-    fun `login code is stripped to six alphanumeric characters`() {
-        assertEquals("A1B2C3", ClientAuth.normalizeLoginCode("A1-B2 C3!"))
-        assertEquals("123456", ClientAuth.normalizeLoginCode("123456789"))
-        val body = ClientAuth.codeBody("123456", "Steve", "uuid")
-        assertEquals("123456", body.get("code").asString)
-        assertEquals("Steve", body.get("playerName").asString)
+    fun `website login code uses the public alphabet`() {
+        assertEquals("AB23CD", ClientAuth.normalizeWebsiteCode("ab23cd"))
+        assertEquals("AB23CD", ClientAuth.normalizeWebsiteCode("ab-23 cd!"))
+        assertEquals("AB23", ClientAuth.normalizeWebsiteCode("AI0O1B23"))
+        assertTrue(ClientAuth.isValidWebsiteCode("AB23CD"))
+        assertFalse(ClientAuth.isValidWebsiteCode("AB23CI"))
+        assertFalse(ClientAuth.isValidWebsiteCode("AB230D"))
+        assertTrue(ClientAuth.isWebsiteCodeChar('a'))
+        assertFalse(ClientAuth.isWebsiteCodeChar('I'))
+        assertFalse(ClientAuth.isWebsiteCodeChar('0'))
+        val challenge = ClientAuth.websiteChallengeBody("AB23CD", "Notch", "069a79f4-44e9-4726-a5be-fca404e38aaf")
+        assertEquals("challenge", challenge.get("action").asString)
+        assertEquals("AB23CD", challenge.get("code").asString)
+        assertEquals("Notch", challenge.get("playerName").asString)
+        assertEquals("069a79f4-44e9-4726-a5be-fca404e38aaf", challenge.get("playerUuid").asString)
+        assertFalse(challenge.has("accessToken"))
+        val complete = ClientAuth.websiteCompleteBody("AB23CD")
+        assertEquals("complete", complete.get("action").asString)
+        assertEquals("AB23CD", complete.get("code").asString)
+        assertFalse(complete.has("playerName"))
         assertTrue(ClientAuth.isClientToken("hsm_cli_abc"))
-        assertTrue(!ClientAuth.isClientToken("123456"))
+        assertFalse(ClientAuth.isClientToken("AB23CD"))
+    }
+
+    @Test
+    fun `website complete returns player identity`() {
+        val json = JsonParser.parseString(
+            """{"ok":true,"playerName":"Notch","playerUuid":"069a79f4-44e9-4726-a5be-fca404e38aaf"}"""
+        ).asJsonObject
+        val parsed = ClientAuth.parseWebsiteComplete(json)
+        assertEquals("Notch", parsed.first)
+        assertEquals("069a79f4-44e9-4726-a5be-fca404e38aaf", parsed.second)
+        val failed = JsonParser.parseString("""{"ok":false,"error":"invalid_code"}""").asJsonObject
+        assertThrows<ClientApiException> { ClientAuth.parseWebsiteComplete(failed) }
+    }
+
+    @Test
+    fun `feedback reports parse kinds and replies`() {
+        val json = JsonParser.parseString(
+            """{"reports":[{"id":"11111111-1111-1111-1111-111111111111","kind":"issue","title":"Lag","body":"Chunks laden langsam.","status":"in_progress","source":"client","reply":"Danke","repliedAt":"now","createdAt":"then","updatedAt":"then"}]}"""
+        ).asJsonObject
+        val reports = ClientFeedback.parseList(json)
+        assertEquals(1, reports.size)
+        assertEquals("issue", reports[0].kind)
+        assertEquals("Issue", reports[0].kindLabel())
+        assertEquals("In Arbeit", reports[0].statusLabel())
+        assertEquals("Danke", reports[0].reply)
     }
 
     @Test

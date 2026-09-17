@@ -38,7 +38,7 @@ class ConfigCategoryNavTest {
     @Test
     fun `settings children stay under the settings rail`() {
         assertEquals(
-            listOf("general", "profiles", "updates", "tools", "afk_bot"),
+            listOf("general", "profiles", "feedback", "updates", "tools", "afk_bot"),
             ConfigCategory.settingsEntries.map { it.id }
         )
         assertTrue(ConfigCategory.settingsEntries.all { it.parentId == ConfigCategory.SETTINGS.id })

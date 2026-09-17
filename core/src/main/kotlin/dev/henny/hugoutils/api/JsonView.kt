@@ -9,7 +9,7 @@ object JsonView {
     private val listKeys = listOf(
         "items", "results", "listings", "auctions", "orders", "feed", "events",
         "players", "packs", "accounts", "rows", "data", "entries", "logs", "lines",
-        "featured", "trending", "spotlight", "chips",
+        "featured", "trending", "spotlight", "chips", "reports", "feedback",
         "messages", "history", "points", "opportunities", "arbitrage", "deals", "jobs", "hits"
     )
     private val titleKeys = listOf(

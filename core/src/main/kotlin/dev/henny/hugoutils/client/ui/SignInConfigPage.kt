@@ -126,7 +126,7 @@ class SignInConfigPage : ConfigPage {
             context, font, signIn, "Anmelden", lastMouseX, lastMouseY,
             enabled = true, style = ButtonStyle.PRIMARY, key = "account-signin"
         )
-        if (signIn.contains(lastMouseX, lastMouseY)) hoveredTip = "Website-Code oder Client-Token einfügen"
+        if (signIn.contains(lastMouseX, lastMouseY)) hoveredTip = "6-Zeichen-Code von hugo.henny.dev oder hsm_cli_-Token"
         UiWidgets.button(
             context, font, reload, if (working) "…" else "↻", lastMouseX, lastMouseY,
             enabled = !working, key = "account-reload"
@@ -185,7 +185,7 @@ class SignInConfigPage : ConfigPage {
         playerName = playerName.ifBlank { sessionName() }
         stats = LocalPlayerStats.chips(lastMe)
         if (!ClientSessionStore.hasToken()) {
-            status = "Nicht angemeldet. Anmelden mit Website-Code oder Auto-Login."
+            status = "Nicht angemeldet. Website-Code auf hugo.henny.dev oder Auto-Login für Market."
             statusError = false
             if (force) AuthApiClient.ensureLoggedIn()
             return

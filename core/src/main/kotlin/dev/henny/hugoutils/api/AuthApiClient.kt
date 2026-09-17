@@ -1,6 +1,7 @@
 package dev.henny.hugoutils.api
 
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.minecraft.client.MinecraftClient
 import net.minecraft.text.Text
@@ -92,26 +93,23 @@ object AuthApiClient {
                 Thread.sleep(40)
             }
             try {
-                val session = MinecraftClient.getInstance().session
-                val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Client-Login nicht verwenden.")
-                val playerName = session.username
-                val playerUuid = uuid.toString()
-                val complete = if (ClientAuth.isClientToken(trimmed)) {
-                    ClientAuth.parseComplete(JsonObject().apply {
-                        addProperty("token", trimmed)
-                    })
-                } else {
-                    val normalized = ClientAuth.normalizeLoginCode(trimmed)
-                    if (normalized.length != ClientAuth.CODE_LENGTH) {
-                        throw LoginFailure("Der Code muss ${ClientAuth.CODE_LENGTH} Zeichen haben.")
-                    }
-                    ClientAuth.parseComplete(ClientApi.loginCode(normalized, playerName, playerUuid))
+                if (ClientAuth.isClientToken(trimmed)) {
+                    val session = MinecraftClient.getInstance().session
+                    val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Client-Login nicht verwenden.")
+                    ClientAuth.parseComplete(JsonObject().apply { addProperty("token", trimmed) })
+                    ClientSessionStore.save(ClientSession(trimmed, session.username, uuid.toString(), null))
+                    runCatching { ClientApi.me(force = true) }
+                    ClientFlags.refreshFromApi()
+                    MarketPriceCache.prefetch()
+                    dispatchFeedback(feedback, "Market-Token gespeichert.", false)
+                    return@execute
                 }
-                ClientSessionStore.save(ClientSession(complete.token, playerName, playerUuid, complete.expiresAt))
-                runCatching { ClientApi.me(force = true) }
-                ClientFlags.refreshFromApi()
-                MarketPriceCache.prefetch()
-                dispatchFeedback(feedback, "Angemeldet. Market, Shop und AFK sind jetzt verfügbar.", false)
+                loginWebsite(trimmed)
+                if (!ClientSessionStore.hasToken()) {
+                    runCatching { performLogin() }
+                }
+                val extra = if (ClientSessionStore.hasToken()) " Market ist verbunden." else ""
+                dispatchFeedback(feedback, "Website angemeldet. Die Seite übernimmt die Session selbst.$extra", false)
             } catch (error: ClientApiException) {
                 dispatchFeedback(feedback, ClientAuth.userMessage(error.error, error.message), true)
             } catch (error: LoginFailure) {
@@ -146,18 +144,7 @@ object AuthApiClient {
         val playerUuid = uuid.toString()
 
         val begin = ClientAuth.parseBegin(ClientApi.begin(playerName, playerUuid))
-        val join = postJson(
-            ApiConfig.MOJANG_SESSION_JOIN_URL,
-            JsonObject().apply {
-                addProperty("accessToken", accessToken)
-                addProperty("selectedProfile", uuid.toString().replace("-", ""))
-                addProperty("serverId", begin.serverId)
-            }
-        )
-        if (join.statusCode() != 204) {
-            throw LoginFailure("Minecraft konnte deine Sitzung nicht bestätigen. Starte den Launcher neu.")
-        }
-
+        joinMojang(begin.serverId)
         var last: ClientApiException? = null
         repeat(4) { attempt ->
             try {
@@ -176,6 +163,65 @@ object AuthApiClient {
             }
         }
         throw last ?: LoginFailure("Anmeldung fehlgeschlagen.")
+    }
+
+    private fun loginWebsite(raw: String) {
+        val code = ClientAuth.normalizeWebsiteCode(raw)
+        if (!ClientAuth.isValidWebsiteCode(code)) {
+            throw LoginFailure("Der Code muss 6 Zeichen aus ABCDEFGHJKLMNPQRSTUVWXYZ23456789 sein. Ohne I, O, 0 und 1.")
+        }
+        val session = MinecraftClient.getInstance().session
+        val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Website-Login nicht verwenden.")
+        val playerName = session.username
+        val playerUuid = uuid.toString()
+        val challenge = postWebsite(ClientAuth.websiteChallengeBody(code, playerName, playerUuid))
+        val serverId = ClientAuth.parseBegin(challenge).serverId
+        joinMojang(serverId)
+        var last: ClientApiException? = null
+        repeat(3) { attempt ->
+            try {
+                ClientAuth.parseWebsiteComplete(postWebsite(ClientAuth.websiteCompleteBody(code)))
+                return
+            } catch (error: ClientApiException) {
+                last = error
+                if (error.error != "verification_failed" || attempt == 2) throw error
+                Thread.sleep(350L * (attempt + 1))
+            }
+        }
+        throw last ?: LoginFailure("Website-Anmeldung fehlgeschlagen.")
+    }
+
+    private fun joinMojang(serverId: String) {
+        val session = MinecraftClient.getInstance().session
+        val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Client-Login nicht verwenden.")
+        val accessToken = session.accessToken
+        if (accessToken.isBlank()) throw LoginFailure("Deine Minecraft-Sitzung hat keinen gültigen Zugriffstoken.")
+        val join = postJson(
+            ApiConfig.MOJANG_SESSION_JOIN_URL,
+            JsonObject().apply {
+                addProperty("accessToken", accessToken)
+                addProperty("selectedProfile", uuid.toString().replace("-", ""))
+                addProperty("serverId", serverId)
+            }
+        )
+        if (join.statusCode() !in 200..204) {
+            throw LoginFailure("Minecraft konnte deine Sitzung nicht bestätigen. Starte den Launcher neu.")
+        }
+    }
+
+    private fun postWebsite(body: JsonObject): JsonObject {
+        val response = postJson(ApiConfig.CLIENT_LOGIN_URL, body)
+        val json = runCatching { JsonParser.parseString(response.body().ifBlank { "{}" }).asJsonObject }.getOrNull()
+            ?: JsonObject()
+        if (response.statusCode() !in 200..299) {
+            val error = JsonView.str(json, "error") ?: "http_${response.statusCode()}"
+            throw ClientApiException(
+                response.statusCode(),
+                error,
+                ClientAuth.userMessage(error, "Website-Login fehlgeschlagen (HTTP ${response.statusCode()}).")
+            )
+        }
+        return json
     }
 
     private fun postJson(url: String, body: JsonObject): HttpResponse<String> {

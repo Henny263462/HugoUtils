@@ -22,14 +22,14 @@ class WebsiteCodePopup(
     private var cancel = UiRect(0, 0, 0, 0)
     private var paste = UiRect(0, 0, 0, 0)
     private var close = UiRect(0, 0, 0, 0)
-    private var status = "6-stelliger Code oder hsm_cli_-Token von hugo.henny.dev."
+    private var status = "6 Zeichen von hugo.henny.dev, ohne I, O, 0 und 1."
     private var statusError = false
     private var working = false
     private var pendingToken: String? = null
 
     override fun layout(screenWidth: Int, screenHeight: Int) {
         val width = 340
-        val height = 168
+        val height = 186
         frame = UiRect((screenWidth - width) / 2, (screenHeight - height) / 2, width, height)
         val box = 30
         val gap = 6
@@ -38,7 +38,7 @@ class WebsiteCodePopup(
         val startX = frame.x + (frame.w - rowW) / 2
         boxes = (0 until ClientAuth.CODE_LENGTH).map { index ->
             val extra = if (index >= ClientAuth.CODE_LENGTH / 2) groupGap - gap else 0
-            UiRect(startX + index * (box + gap) + extra, frame.y + 44, box, 36)
+            UiRect(startX + index * (box + gap) + extra, frame.y + 52, box, 36)
         }
         paste = UiRect(frame.x + 16, frame.bottom - 36, 84, 22)
         cancel = UiRect(frame.right - 176, frame.bottom - 36, 74, 22)
@@ -52,8 +52,16 @@ class WebsiteCodePopup(
         UiDraw.fill(context, 0, 0, client.window.scaledWidth, client.window.scaledHeight, 0xB0000000.toInt())
         UiDraw.shadow(context, frame)
         UiDraw.panel(context, frame, HugoTheme.panel, HugoTheme.panelBorder)
-        context.drawText(font, "Anmelden", frame.x + 16, frame.y + 14, HugoTheme.text, false)
+        context.drawText(font, "Website anmelden", frame.x + 16, frame.y + 10, HugoTheme.text, false)
         context.drawText(font, "×", close.x + 3, close.y + 2, HugoTheme.textMuted, false)
+        context.drawText(
+            font,
+            "Ohne Mod: /msg <Bot> AB23CD",
+            frame.x + 16,
+            frame.y + 24,
+            HugoTheme.textDim,
+            false
+        )
         val token = pendingToken
         if (token != null) {
             UiDraw.panel(context, UiRect(frame.x + 16, frame.y + 48, frame.w - 32, 36), HugoTheme.inset, HugoTheme.accent)
@@ -169,10 +177,10 @@ class WebsiteCodePopup(
     override fun charTyped(input: CharInput): Boolean {
         if (working || !input.isValidChar) return true
         val ch = input.asString().firstOrNull() ?: return true
-        if (!ch.isLetterOrDigit()) return true
+        if (!ClientAuth.isWebsiteCodeChar(ch)) return true
         pendingToken = null
         if (filled >= ClientAuth.CODE_LENGTH) return true
-        digits[filled] = ch
+        digits[filled] = ch.uppercaseChar()
         filled++
         caret = filled.coerceAtMost(ClientAuth.CODE_LENGTH - 1)
         return true
@@ -218,7 +226,7 @@ class WebsiteCodePopup(
             return
         }
         if (filled != ClientAuth.CODE_LENGTH) {
-            status = "Bitte ${ClientAuth.CODE_LENGTH} Zeichen eingeben oder einfügen."
+            status = "Bitte ${ClientAuth.CODE_LENGTH} Zeichen aus ABCDEFGHJKLMNPQRSTUVWXYZ23456789."
             statusError = true
             return
         }

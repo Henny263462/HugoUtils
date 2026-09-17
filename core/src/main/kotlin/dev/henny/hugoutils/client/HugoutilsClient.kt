@@ -15,6 +15,7 @@ import dev.henny.hugoutils.client.ui.ComingSoonPage
 import dev.henny.hugoutils.client.ui.ConfigCategory
 import dev.henny.hugoutils.client.ui.ConfigPages
 import dev.henny.hugoutils.client.ui.EffectsConfigPage
+import dev.henny.hugoutils.client.ui.FeedbackConfigPage
 import dev.henny.hugoutils.client.ui.GeneralConfigPage
 import dev.henny.hugoutils.client.ui.GuiCaptureConfigPage
 import dev.henny.hugoutils.client.ui.HugoScreen
@@ -67,6 +68,7 @@ class HugoutilsClient : ClientModInitializer {
         ConfigPages.register(ComingSoonPage(ConfigCategory.MARKET_SHOP))
         ConfigPages.register(AfkBotConfigPage())
         ConfigPages.register(ProfileConfigPage())
+        ConfigPages.register(FeedbackConfigPage())
         ConfigPages.register(UpdateConfigPage())
         ConfigPages.refreshAvailability()
         ModClientCommands.initialize()
