@@ -1,5 +1,7 @@
 package dev.henny.hugoutils.client.ui
 
+import dev.henny.hugoutils.api.ClientFlags
+
 object ConfigPages {
     private val registry get() = dev.henny.hugoutils.ui.UiNavigation.registry
     init {
@@ -22,15 +24,30 @@ object ConfigPages {
         registry.registerPage(entry, page)
     }
 
+    fun refreshAvailability() {
+        ConfigCategory.entries.forEach { category ->
+            val existing = registry.entry(category.id) ?: return@forEach
+            val required = category.requiredKey()
+            val available = category.available && (required == null || ClientFlags.has(required))
+            if (existing.available != available) {
+                registry.register(existing.copy(available = available))
+            }
+        }
+    }
+
     private fun registerCategory(category: ConfigCategory) {
-        if (category.visualChild) registerCategory(ConfigCategory.VISUALS)
+        if (category.group == NavGroup.HIDDEN) return
+        category.parentId?.let { parentId ->
+            ConfigCategory.entries.firstOrNull { it.id == parentId }?.let(::registerCategory)
+        }
+        val required = category.requiredKey()
         registry.register(
             dev.henny.hugoutils.ui.NavigationEntry(
                 id = category.id,
                 title = category.title,
-                parentId = if (category.visualChild) ConfigCategory.VISUALS.id else null,
+                parentId = category.parentId,
                 footer = category.footer,
-                available = category.available,
+                available = category.available && required == null,
                 order = category.ordinal
             )
         )

@@ -14,6 +14,24 @@ fun interface Easing {
             val t = it.coerceIn(0f, 1f)
             if (t < .5f) 4f * t * t * t else 1f - (-2f * t + 2f).pow(3) / 2f
         }
+        @JvmField val EASE_OUT_BACK = Easing { t ->
+            val x = t.coerceIn(0f, 1f)
+            val overshoot = 1.70158f
+            1f + (overshoot + 1f) * (x - 1f).pow(3) + overshoot * (x - 1f).pow(2)
+        }
+        @JvmField val EASE_OUT_BOUNCE = Easing(::bounceOut)
+
+        private fun bounceOut(progress: Float): Float {
+            val x = progress.coerceIn(0f, 1f)
+            val n1 = 7.5625f
+            val d1 = 2.75f
+            return when {
+                x < 1f / d1 -> n1 * x * x
+                x < 2f / d1 -> n1 * (x - 1.5f / d1) * (x - 1.5f / d1) + 0.75f
+                x < 2.5f / d1 -> n1 * (x - 2.25f / d1) * (x - 2.25f / d1) + 0.9375f
+                else -> n1 * (x - 2.625f / d1) * (x - 2.625f / d1) + 0.984375f
+            }
+        }
     }
 }
 
@@ -28,14 +46,16 @@ class AnimatedFloat(
         private set
     private var start = initialValue
     private var elapsed = durationSeconds
+    private var delayRemaining = 0f
 
-    val running: Boolean get() = elapsed < durationSeconds
+    val running: Boolean get() = delayRemaining > 0f || elapsed < durationSeconds
 
-    fun animateTo(newTarget: Float) {
-        if (abs(newTarget - target) < 0.0001f) return
+    fun animateTo(newTarget: Float, delaySeconds: Float = 0f) {
+        if (abs(newTarget - target) < 0.0001f && delayRemaining <= 0f && delaySeconds <= 0f) return
         start = value
         target = newTarget
         elapsed = 0f
+        delayRemaining = delaySeconds.coerceAtLeast(0f)
     }
 
     fun snapTo(newValue: Float) {
@@ -43,11 +63,21 @@ class AnimatedFloat(
         target = newValue
         value = newValue
         elapsed = durationSeconds
+        delayRemaining = 0f
     }
 
     fun update(deltaSeconds: Float): Float {
-        if (!running) return value
-        elapsed = (elapsed + deltaSeconds.coerceAtLeast(0f)).coerceAtMost(durationSeconds)
+        var dt = deltaSeconds.coerceAtLeast(0f)
+        if (delayRemaining > 0f) {
+            if (dt < delayRemaining) {
+                delayRemaining -= dt
+                return value
+            }
+            dt -= delayRemaining
+            delayRemaining = 0f
+        }
+        if (elapsed >= durationSeconds) return value
+        elapsed = (elapsed + dt).coerceAtMost(durationSeconds)
         val progress = if (durationSeconds <= 0f) 1f else elapsed / durationSeconds
         value = start + (target - start) * easing.transform(progress)
         return value

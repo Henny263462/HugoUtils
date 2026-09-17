@@ -1,5 +1,5 @@
 package dev.henny.hugoutils.api
 
 class MarketApiClient {
-    fun isConfigured(): Boolean = false
+    fun isConfigured(): Boolean = ClientSessionStore.hasToken()
 }

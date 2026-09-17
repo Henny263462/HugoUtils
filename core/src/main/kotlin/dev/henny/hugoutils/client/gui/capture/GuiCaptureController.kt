@@ -43,6 +43,7 @@ object GuiCaptureController : GuiCaptureStarter {
     }
 
     override fun startSnapshot(screen: Screen) {
+        if (!dev.henny.hugoutils.api.ClientFlags.has("debug.inv")) return
         val client = MinecraftClient.getInstance()
         val snapshot = GuiCaptureSnapshotter.capture(client, screen)
         val suggestedId = suggestId(screen)

@@ -48,3 +48,12 @@ subprojects {
         }
     }
 }
+
+gradle.projectsEvaluated {
+    val remapJars = subprojects
+        .filter { it.name != "fabric" }
+        .mapNotNull { it.tasks.findByName("remapJar") }
+    remapJars.windowed(2).forEach { (first, second) ->
+        second.mustRunAfter(first)
+    }
+}

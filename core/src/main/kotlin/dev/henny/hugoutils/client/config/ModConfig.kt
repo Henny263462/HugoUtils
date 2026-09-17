@@ -11,6 +11,13 @@ class ModConfig {
     var checkUpdatesAutomatically: Boolean = true
     var includePrereleases: Boolean = false
     var uiDebugCommandsEnabled: Boolean = false
+    var lastSettingsPage: String = "general"
+    var lastOpenedPage: String = "market_home"
+    var restoreLastPage: Boolean = false
+    var uiCornerRadius: Int = 0
+    var marketListView: Boolean = false
+    var pinnedMarketItems: MutableList<String> = ArrayList()
+    var priceAlerts: MutableList<PriceAlert> = ArrayList()
 
     fun clamp() {
         droppedItemGlow.clamp()
@@ -18,7 +25,18 @@ class ModConfig {
         playerGlow.clamp()
         heldGlint.clamp()
         perspectiveMode = PerspectiveMode.fromId(perspectiveMode).id
+        uiCornerRadius = uiCornerRadius.coerceIn(0, 12)
     }
+}
+
+class PriceAlert {
+    var itemId: String = ""
+    var name: String = ""
+    var minecraftId: String = ""
+    var target: Double = 0.0
+    var above: Boolean = false
+    var source: String = "any"
+    var fired: Boolean = false
 }
 
 enum class PerspectiveMode(val id: String, val label: String, val description: String) {

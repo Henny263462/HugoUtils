@@ -51,6 +51,12 @@ object BlockHighlightConfig : ConfigSection {
         return key
     }
 
+    fun remove(id: String?) {
+        if (id != null) entries.remove(id)
+    }
+
+    fun keys(): List<String> = entries.keys.toList()
+
     fun styleFor(rawId: String): BlockHighlightStyle? =
         if (enabled) entries[rawId] else null
 

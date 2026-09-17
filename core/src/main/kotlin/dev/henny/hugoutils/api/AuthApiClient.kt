@@ -1,7 +1,6 @@
 package dev.henny.hugoutils.api
 
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.minecraft.client.MinecraftClient
 import net.minecraft.text.Text
@@ -14,7 +13,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 object AuthApiClient {
-    private val codePattern = Regex("^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$")
     private val busy = AtomicBoolean(false)
     private val http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))
@@ -25,82 +23,159 @@ object AuthApiClient {
     }
 
     @JvmStatic
-    fun login(rawCode: String, source: FabricClientCommandSource) {
-        login(rawCode) { message, error ->
+    fun login(source: FabricClientCommandSource) {
+        login { message, error ->
             if (error) source.sendError(Text.literal(message))
             else source.sendFeedback(Text.literal(message))
         }
     }
 
-    fun login(rawCode: String, feedback: (message: String, error: Boolean) -> Unit) {
-        val code = rawCode.trim().uppercase()
-        if (!codePattern.matches(code)) {
-            dispatchFeedback(feedback, "Ungültiger Login-Code. Öffne hugo.henny.dev/anmelden.", true)
-            return
-        }
+    fun login(feedback: (message: String, error: Boolean) -> Unit) {
+        login(feedback, silent = false)
+    }
+
+    fun ensureLoggedIn() {
+        login({ _, _ -> }, silent = true)
+    }
+
+    fun login(feedback: (message: String, error: Boolean) -> Unit, silent: Boolean) {
         if (!busy.compareAndSet(false, true)) {
-            dispatchFeedback(feedback, "Ein Web-Login läuft bereits.", true)
+            if (!silent) dispatchFeedback(feedback, "Ein Login läuft bereits.", true)
             return
         }
-        dispatchFeedback(feedback, "HugoUtils: Minecraft-Konto wird sicher bestätigt …", false)
+        if (!silent) dispatchFeedback(feedback, "Minecraft-Konto wird bestätigt …", false)
         executor.execute {
             try {
-                performLogin(code)
-                dispatchFeedback(feedback, "HugoUtils: Web-Login bestätigt. Kehre zum Browser zurück.", false)
+                if (ClientSessionStore.hasToken()) {
+                    try {
+                        ClientApi.me(force = true)
+                        ClientFlags.refreshFromApi()
+                        MarketPriceCache.prefetch()
+                        if (!silent) dispatchFeedback(feedback, "Angemeldet. Market, Shop und AFK sind jetzt verfügbar.", false)
+                        return@execute
+                    } catch (error: ClientApiException) {
+                        if (error.status != 401 && error.error != "unauthorized") throw error
+                        ClientSessionStore.clear()
+                        ClientApi.invalidate()
+                        ClientFlags.clear()
+                    }
+                }
+                performLogin()
+                if (!silent) dispatchFeedback(feedback, "Angemeldet. Market, Shop und AFK sind jetzt verfügbar.", false)
+                else dispatchFeedback(feedback, "Angemeldet.", false)
+            } catch (error: ClientApiException) {
+                if (!silent) dispatchFeedback(feedback, ClientAuth.userMessage(error.error, error.message), true)
             } catch (error: LoginFailure) {
-                dispatchFeedback(feedback, error.userMessage, true)
+                if (!silent) dispatchFeedback(feedback, error.userMessage, true)
             } catch (_: Exception) {
-                dispatchFeedback(feedback, "HugoUtils: Login-Dienst ist gerade nicht erreichbar.", true)
+                if (!silent) dispatchFeedback(feedback, "Login-Dienst ist gerade nicht erreichbar.", true)
             } finally {
                 busy.set(false)
             }
         }
     }
 
-    private fun performLogin(code: String) {
+    fun loginWithCode(code: String, feedback: (message: String, error: Boolean) -> Unit) {
+        val trimmed = code.trim()
+        if (trimmed.isBlank()) {
+            dispatchFeedback(feedback, "Bitte einen Code einfügen.", true)
+            return
+        }
+        dispatchFeedback(feedback, "Code wird geprüft …", false)
+        executor.execute {
+            val deadline = System.currentTimeMillis() + 12_000L
+            while (!busy.compareAndSet(false, true)) {
+                if (System.currentTimeMillis() > deadline) {
+                    dispatchFeedback(feedback, "Ein Login läuft bereits. Bitte kurz warten und erneut versuchen.", true)
+                    return@execute
+                }
+                Thread.sleep(40)
+            }
+            try {
+                val session = MinecraftClient.getInstance().session
+                val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Client-Login nicht verwenden.")
+                val playerName = session.username
+                val playerUuid = uuid.toString()
+                val complete = if (ClientAuth.isClientToken(trimmed)) {
+                    ClientAuth.parseComplete(JsonObject().apply {
+                        addProperty("token", trimmed)
+                    })
+                } else {
+                    val normalized = ClientAuth.normalizeLoginCode(trimmed)
+                    if (normalized.length != ClientAuth.CODE_LENGTH) {
+                        throw LoginFailure("Der Code muss ${ClientAuth.CODE_LENGTH} Zeichen haben.")
+                    }
+                    ClientAuth.parseComplete(ClientApi.loginCode(normalized, playerName, playerUuid))
+                }
+                ClientSessionStore.save(ClientSession(complete.token, playerName, playerUuid, complete.expiresAt))
+                runCatching { ClientApi.me(force = true) }
+                ClientFlags.refreshFromApi()
+                MarketPriceCache.prefetch()
+                dispatchFeedback(feedback, "Angemeldet. Market, Shop und AFK sind jetzt verfügbar.", false)
+            } catch (error: ClientApiException) {
+                dispatchFeedback(feedback, ClientAuth.userMessage(error.error, error.message), true)
+            } catch (error: LoginFailure) {
+                dispatchFeedback(feedback, error.userMessage, true)
+            } catch (_: Exception) {
+                dispatchFeedback(feedback, "Login-Dienst ist gerade nicht erreichbar.", true)
+            } finally {
+                busy.set(false)
+            }
+        }
+    }
+
+    fun logout(feedback: (message: String, error: Boolean) -> Unit) {
+        executor.execute {
+            try {
+                if (ClientSessionStore.hasToken()) runCatching { ClientApi.revoke() }
+            } finally {
+                ClientSessionStore.clear()
+                ClientApi.invalidate()
+                ClientFlags.clear()
+                dispatchFeedback(feedback, "Abgemeldet.", false)
+            }
+        }
+    }
+
+    private fun performLogin() {
         val session = MinecraftClient.getInstance().session
-        val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Web-Login nicht verwenden.")
+        val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Client-Login nicht verwenden.")
         val accessToken = session.accessToken
         if (accessToken.isBlank()) throw LoginFailure("Deine Minecraft-Sitzung hat keinen gültigen Zugriffstoken.")
+        val playerName = session.username
+        val playerUuid = uuid.toString()
 
-        val challenge = postJson(
-            ApiConfig.CLIENT_LOGIN_URL,
-            JsonObject().apply {
-                addProperty("action", "challenge")
-                addProperty("code", code)
-                addProperty("playerName", session.username)
-                addProperty("playerUuid", uuid.toString())
-            }
-        )
-        if (challenge.statusCode() != 200) throw apiFailure(challenge)
-        val serverId = parse(challenge).get("serverId")?.asString
-            ?.takeIf { it.matches(Regex("^[0-9a-f]{40}$")) }
-            ?: throw LoginFailure("Der Login-Dienst hat ungültig geantwortet.")
-
+        val begin = ClientAuth.parseBegin(ClientApi.begin(playerName, playerUuid))
         val join = postJson(
             ApiConfig.MOJANG_SESSION_JOIN_URL,
             JsonObject().apply {
                 addProperty("accessToken", accessToken)
                 addProperty("selectedProfile", uuid.toString().replace("-", ""))
-                addProperty("serverId", serverId)
+                addProperty("serverId", begin.serverId)
             }
         )
         if (join.statusCode() != 204) {
             throw LoginFailure("Minecraft konnte deine Sitzung nicht bestätigen. Starte den Launcher neu.")
         }
 
+        var last: ClientApiException? = null
         repeat(4) { attempt ->
-            val complete = postJson(
-                ApiConfig.CLIENT_LOGIN_URL,
-                JsonObject().apply {
-                    addProperty("action", "complete")
-                    addProperty("code", code)
-                }
-            )
-            if (complete.statusCode() == 200) return
-            if (complete.statusCode() != 401 || attempt == 3) throw apiFailure(complete)
-            Thread.sleep(350L * (attempt + 1))
+            try {
+                val complete = ClientAuth.parseComplete(ClientApi.complete(playerName, playerUuid, begin.serverId))
+                ClientSessionStore.save(
+                    ClientSession(complete.token, playerName, playerUuid, complete.expiresAt)
+                )
+                runCatching { ClientApi.me(force = true) }
+                ClientFlags.refreshFromApi()
+                MarketPriceCache.prefetch()
+                return
+            } catch (error: ClientApiException) {
+                last = error
+                if (error.error != "verification_failed" || attempt == 3) throw error
+                Thread.sleep(350L * (attempt + 1))
+            }
         }
+        throw last ?: LoginFailure("Anmeldung fehlgeschlagen.")
     }
 
     private fun postJson(url: String, body: JsonObject): HttpResponse<String> {
@@ -114,24 +189,8 @@ object AuthApiClient {
         return http.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private fun parse(response: HttpResponse<String>): JsonObject =
-        JsonParser.parseString(response.body()).asJsonObject
-
-    private fun apiFailure(response: HttpResponse<String>): LoginFailure {
-        val code = runCatching { parse(response).get("error")?.asString }.getOrNull()
-        val message = when (code) {
-            "invalid_code" -> "Der Code ist ungültig oder abgelaufen."
-            "verification_failed" -> "Minecraft konnte deine Sitzung nicht bestätigen."
-            "verification_unavailable" -> "Mojangs Sitzungsdienst ist gerade nicht erreichbar."
-            else -> "Web-Login fehlgeschlagen (HTTP ${response.statusCode()})."
-        }
-        return LoginFailure("HugoUtils: $message")
-    }
-
     private fun dispatchFeedback(feedback: (String, Boolean) -> Unit, message: String, error: Boolean) {
-        MinecraftClient.getInstance().execute {
-            feedback(message, error)
-        }
+        MinecraftClient.getInstance().execute { feedback(message, error) }
     }
 
     private class LoginFailure(val userMessage: String) : RuntimeException(userMessage)

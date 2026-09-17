@@ -9,60 +9,57 @@ class GuiCaptureConfigPage : ConfigPage {
     override val category = ConfigCategory.TOOLS
     private val client = MinecraftClient.getInstance()
     private var frame = UiRect(0, 0, 0, 0)
+    private var hero = UiRect(0, 0, 0, 0)
+    private var steps = UiRect(0, 0, 0, 0)
+    private var debugCard = UiRect(0, 0, 0, 0)
     private var debugToggle = UiRect(0, 0, 0, 0)
+    private var lastMouseX = 0.0
+    private var lastMouseY = 0.0
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        frame = UiRect(x, y, width, 218)
-        debugToggle = UiRect(frame.right() - 44, frame.y + 164, 32, 14)
+        frame = UiRect(x, y, width, 250)
+        hero = UiRect(x + 8, y + 8, width - 16, 58)
+        steps = UiRect(x + 8, hero.bottom() + 8, width - 16, 102)
+        debugCard = UiRect(x + 8, steps.bottom() + 8, width - 16, 64)
+        debugToggle = UiRect(debugCard.right() - 42, debugCard.y + 14, 32, 14)
         return frame.h
     }
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int) {
+        lastMouseX = mouseX.toDouble()
+        lastMouseY = mouseY.toDouble()
         val font = client.textRenderer
-        UiDraw.panel(context, frame, HugoTheme.card, HugoTheme.cardBorder)
-        context.drawText(font, "GUI-Wissenslayer", frame.x + 10, frame.y + 12, HugoTheme.text, false)
-        val lines = listOf(
-            "1. Öffne ein Container-GUI und drücke F8.",
-            "2. Trage die stabile screenId und die Screen-Metadaten ein.",
-            "3. Klicke Slots an und beschreibe Rolle sowie Klick-Aktionen.",
-            "4. „Export“ schreibt capture.json und index.json lokal.",
-            "",
-            "Pfad: config/hugoutils/gui-knowledge/{screenId}/",
-            GuiCaptureController.statusText()
+        ModPageChrome.hero(
+            context, font, hero,
+            "GUI Capture",
+            GuiCaptureController.statusText().ifBlank { "Container mit F8 aufnehmen und lokal exportieren." },
+            ConfigManager.config.uiDebugCommandsEnabled, lastMouseX, lastMouseY
         )
-        lines.forEachIndexed { index, line ->
-            context.drawText(
-                font,
-                UiDraw.ellipsize(font, line, frame.w - 20),
-                frame.x + 10,
-                frame.y + 34 + index * 16,
-                if (index >= 5) HugoTheme.accent else HugoTheme.textMuted,
-                false
-            )
+        UiWidgets.hoverCard(context, steps, lastMouseX, lastMouseY, key = "capture-steps")
+        listOf(
+            "1. Container öffnen und F8 drücken",
+            "2. screenId und Metadaten eintragen",
+            "3. Slots anklicken und Rollen beschreiben",
+            "4. Export schreibt capture.json lokal",
+            "Pfad: config/hugoutils/gui-knowledge/"
+        ).forEachIndexed { index, line ->
+            context.drawText(font, line, steps.x + 12, steps.y + 10 + index * 16, HugoTheme.textMuted, false)
         }
-        context.drawText(font, "UI-Debug-Commands", frame.x + 10, frame.y + 166, HugoTheme.text, false)
-        UiWidgets.toggle(
-            context,
-            debugToggle,
+        ModPageChrome.option(
+            context, font, debugCard,
+            "UI-Debug-Commands",
+            "/hugoutils-ui  ·  Änderung nach Neustart.",
             ConfigManager.config.uiDebugCommandsEnabled,
-            mouseX.toDouble(),
-            mouseY.toDouble()
+            lastMouseX, lastMouseY, debugToggle, ConfigManager.config.uiDebugCommandsEnabled
         )
-        context.drawText(
-            font,
-            "/hugoutils-ui demo gallery|form|list|dialog|navigation",
-            frame.x + 10,
-            frame.y + 188,
-            HugoTheme.textMuted,
-            false
-        )
-        context.drawText(font, "Änderung wird nach einem Neustart wirksam.", frame.x + 10, frame.y + 202, HugoTheme.helper, false)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {
-        if (!debugToggle.contains(mouseX, mouseY)) return false
-        ConfigManager.update { it.uiDebugCommandsEnabled = !it.uiDebugCommandsEnabled }
-        return true
+        if (debugToggle.contains(mouseX, mouseY) || debugCard.contains(mouseX, mouseY)) {
+            ConfigManager.update { it.uiDebugCommandsEnabled = !it.uiDebugCommandsEnabled }
+            return true
+        }
+        return frame.contains(mouseX, mouseY)
     }
 
     override fun persist() = ConfigManager.save()

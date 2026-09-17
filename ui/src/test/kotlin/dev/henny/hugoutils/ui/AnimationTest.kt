@@ -40,4 +40,37 @@ class AnimationTest {
         assertEquals(.4f, value.value, .0001f)
         assertEquals(.2f, value.update(.5f), .0001f)
     }
+
+    @Test
+    fun `bounce easing overshoots then settles`() {
+        assertEquals(0f, Easing.EASE_OUT_BOUNCE.transform(0f), .0001f)
+        assertEquals(1f, Easing.EASE_OUT_BOUNCE.transform(1f), .0001f)
+        assertTrue(Easing.EASE_OUT_BACK.transform(.7f) > 1f)
+    }
+
+    @Test
+    fun `animated float respects delay`() {
+        val value = AnimatedFloat(0f, .2f, Easing.LINEAR)
+        value.animateTo(1f, delaySeconds = .3f)
+        assertEquals(0f, value.update(.2f), .0001f)
+        assertTrue(value.running)
+        assertEquals(.5f, value.update(.2f), .0001f)
+    }
+
+    @Test
+    fun `sparkline downsample keeps endpoints`() {
+        val sampled = UiDraw.downsample((0..99).map { it.toFloat() }, 5)
+        assertEquals(5, sampled.size)
+        assertEquals(0f, sampled.first())
+        assertEquals(99f, sampled.last())
+    }
+
+    @Test
+    fun `chart valueAt interpolates along the line`() {
+        val values = listOf(0f, 10f, 20f)
+        assertEquals(0f, UiDraw.valueAt(values, 0f), .0001f)
+        assertEquals(10f, UiDraw.valueAt(values, 0.5f), .0001f)
+        assertEquals(20f, UiDraw.valueAt(values, 1f), .0001f)
+        assertEquals(5f, UiDraw.valueAt(values, 0.25f), .0001f)
+    }
 }

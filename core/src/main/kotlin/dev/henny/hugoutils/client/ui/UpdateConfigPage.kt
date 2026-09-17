@@ -3,35 +3,45 @@ package dev.henny.hugoutils.client.ui
 import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.update.UpdateManager
 import dev.henny.hugoutils.update.UpdateState
+import dev.henny.hugoutils.ui.ButtonStyle
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
 import kotlin.math.roundToInt
-import dev.henny.hugoutils.ui.ButtonStyle
 
 class UpdateConfigPage : ConfigPage {
     override val category = ConfigCategory.UPDATES
     private val client = MinecraftClient.getInstance()
     private var frame = UiRect(0, 0, 0, 0)
-    private var autoToggle = UiRect(0, 0, 0, 0)
-    private var preToggle = UiRect(0, 0, 0, 0)
+    private var statusCard = UiRect(0, 0, 0, 0)
     private var checkButton = UiRect(0, 0, 0, 0)
     private var updateButton = UiRect(0, 0, 0, 0)
     private var restartButton = UiRect(0, 0, 0, 0)
+    private var autoCard = UiRect(0, 0, 0, 0)
+    private var preCard = UiRect(0, 0, 0, 0)
+    private var autoToggle = UiRect(0, 0, 0, 0)
+    private var preToggle = UiRect(0, 0, 0, 0)
     private var lastMouseX = 0.0
     private var lastMouseY = 0.0
     private var autoAnim = if (ConfigManager.config.checkUpdatesAutomatically) 1f else 0f
     private var preAnim = if (ConfigManager.config.includePrereleases) 1f else 0f
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        frame = UiRect(x, y, width, 210)
-        autoToggle = UiRect(x + width - 42, y + 86, 32, 14)
-        preToggle = UiRect(x + width - 42, y + 112, 32, 14)
-        val buttonW = ((width - 20 - 8) / 2).coerceAtLeast(90)
-        checkButton = UiRect(x + 10, y + 140, buttonW, 22)
-        updateButton = UiRect(x + 10 + buttonW + 8, y + 140, buttonW, 22)
-        restartButton = UiRect(x + 10, y + 170, width - 20, 22)
+        frame = UiRect(x, y, width, 216)
+        statusCard = UiRect(x + 8, y + 8, width - 16, 118)
+        val buttonW = ((width - 16 - 16) / 3).coerceAtLeast(78)
+        val buttonY = statusCard.bottom() - 30
+        checkButton = UiRect(statusCard.x + 8, buttonY, buttonW, 20)
+        updateButton = UiRect(checkButton.right() + 8, buttonY, buttonW, 20)
+        restartButton = UiRect(updateButton.right() + 8, buttonY, statusCard.right() - 8 - (updateButton.right() + 8), 20)
+        val gap = 8
+        val cardW = ((width - 16 - gap) / 2).coerceAtLeast(120)
+        val settingsY = statusCard.bottom() + 10
+        autoCard = UiRect(x + 8, settingsY, cardW, 72)
+        preCard = UiRect(autoCard.right() + gap, settingsY, width - 16 - cardW - gap, 72)
+        autoToggle = UiRect(autoCard.right() - 42, autoCard.y + 14, 32, 14)
+        preToggle = UiRect(preCard.right() - 42, preCard.y + 14, 32, 14)
         return frame.h
     }
 
@@ -43,55 +53,75 @@ class UpdateConfigPage : ConfigPage {
         autoAnim = UiDraw.lerp(autoAnim, if (ConfigManager.config.checkUpdatesAutomatically) 1f else 0f, 0.25f)
         preAnim = UiDraw.lerp(preAnim, if (ConfigManager.config.includePrereleases) 1f else 0f, 0.25f)
 
-        UiDraw.panel(context, frame, HugoTheme.card, HugoTheme.cardBorder)
-        context.drawText(font, "Updates", frame.x + 10, frame.y + 12, HugoTheme.text, false)
+        UiDraw.panel(context, statusCard, HugoTheme.card, statusBorder(snapshot.state))
+        context.drawText(font, "Updates", statusCard.x + 10, statusCard.y + 10, HugoTheme.text, false)
+        context.drawText(font, stateBadge(snapshot.state), statusCard.x + 10, statusCard.y + 26, statusColor(snapshot.state), false)
+        val installed = snapshot.installedVersion?.let { "v$it" } ?: "—"
+        val available = snapshot.availableVersion?.let { "v$it" }
+        val versionLine = if (!available.isNullOrBlank() && snapshot.state != UpdateState.UP_TO_DATE) {
+            "$installed  →  $available"
+        } else {
+            "Installiert: $installed"
+        }
+        context.drawText(font, versionLine, statusCard.x + 10, statusCard.y + 44, HugoTheme.text, false)
         context.drawText(
             font,
-            UiDraw.ellipsize(font, statusLine(snapshot.state, snapshot.message, snapshot.availableVersion), frame.w - 20),
-            frame.x + 10,
-            frame.y + 32,
-            statusColor(snapshot.state),
+            UiDraw.ellipsize(font, statusLine(snapshot.state, snapshot.message, snapshot.availableVersion), statusCard.w - 20),
+            statusCard.x + 10,
+            statusCard.y + 60,
+            HugoTheme.textMuted,
             false
         )
-        snapshot.installedVersion?.let { installed ->
-            context.drawText(font, "Installed: v$installed", frame.x + 10, frame.y + 48, HugoTheme.textDim, false)
-        }
         if (snapshot.state == UpdateState.DOWNLOADING ||
             snapshot.state == UpdateState.VERIFYING ||
             snapshot.state == UpdateState.INSTALLING
         ) {
-            val bar = UiRect(frame.x + 10, frame.y + 64, frame.w - 20, 8)
+            val bar = UiRect(statusCard.x + 10, statusCard.y + 76, statusCard.w - 20, 8)
             UiDraw.fill(context, bar, HugoTheme.inset)
             val fill = ((bar.w - 2) * snapshot.progress.coerceIn(0f, 1f)).roundToInt()
             if (fill > 0) UiDraw.fill(context, bar.x + 1, bar.y + 1, fill, bar.h - 2, HugoTheme.accent)
         }
 
-        context.drawText(font, "Check for updates automatically", frame.x + 10, frame.y + 88, HugoTheme.text, false)
-        drawToggle(context, autoToggle, autoAnim)
-        context.drawText(font, "Include prerelease versions", frame.x + 10, frame.y + 114, HugoTheme.text, false)
-        drawToggle(context, preToggle, preAnim)
-
-        drawButton(context, checkButton, "Check", true)
+        drawButton(context, checkButton, "Prüfen", snapshot.state != UpdateState.CHECKING, ButtonStyle.SECONDARY)
         drawButton(
             context,
             updateButton,
-            "Update",
-            snapshot.state == UpdateState.UPDATE_AVAILABLE
+            "Installieren",
+            snapshot.state == UpdateState.UPDATE_AVAILABLE,
+            ButtonStyle.PRIMARY
         )
         drawButton(
             context,
             restartButton,
-            "Minecraft neu starten",
-            snapshot.state == UpdateState.PENDING_RESTART
+            "Neu starten",
+            snapshot.state == UpdateState.PENDING_RESTART,
+            ButtonStyle.PRIMARY
+        )
+
+        drawSettingCard(
+            context,
+            autoCard,
+            autoToggle,
+            autoAnim,
+            "Automatisch",
+            "Beim Start nach Updates suchen."
+        )
+        drawSettingCard(
+            context,
+            preCard,
+            preToggle,
+            preAnim,
+            "Vorabversionen",
+            "Auch Pre-Releases anbieten."
         )
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {
-        if (autoToggle.contains(mouseX, mouseY) || toggleRow(autoToggle, mouseX, mouseY)) {
+        if (autoToggle.contains(mouseX, mouseY) || autoCard.contains(mouseX, mouseY) && mouseY <= autoCard.y + 32) {
             ConfigManager.update { it.checkUpdatesAutomatically = !it.checkUpdatesAutomatically }
             return true
         }
-        if (preToggle.contains(mouseX, mouseY) || toggleRow(preToggle, mouseX, mouseY)) {
+        if (preToggle.contains(mouseX, mouseY) || preCard.contains(mouseX, mouseY) && mouseY <= preCard.y + 32) {
             ConfigManager.update { it.includePrereleases = !it.includePrereleases }
             UpdateManager.checkForUpdates()
             return true
@@ -113,46 +143,56 @@ class UpdateConfigPage : ConfigPage {
     }
 
     override fun persist() = ConfigManager.requestSave()
-
     override fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean = false
     override fun keyPressed(input: KeyInput): Boolean = false
     override fun charTyped(input: CharInput): Boolean = false
     override fun mouseDragged(mouseX: Double, mouseY: Double): Boolean = false
     override fun mouseReleased() {}
 
-    private fun toggleRow(toggle: UiRect, mouseX: Double, mouseY: Double): Boolean {
-        return mouseX >= frame.x && mouseX < toggle.x && mouseY >= toggle.y - 4 && mouseY <= toggle.bottom() + 4
+    private fun drawSettingCard(
+        context: DrawContext,
+        rect: UiRect,
+        toggle: UiRect,
+        anim: Float,
+        title: String,
+        detail: String
+    ) {
+        val font = client.textRenderer
+        val hovered = rect.contains(lastMouseX, lastMouseY)
+        UiDraw.panel(context, rect, if (hovered) HugoTheme.cardHover else HugoTheme.card, HugoTheme.cardBorder)
+        context.drawText(font, title, rect.x + 10, rect.y + 12, HugoTheme.text, false)
+        UiWidgets.toggleProgress(context, toggle, anim, lastMouseX, lastMouseY)
+        context.drawText(font, UiDraw.ellipsize(font, detail, rect.w - 20), rect.x + 10, rect.y + 42, HugoTheme.textMuted, false)
     }
 
-    private fun drawToggle(context: DrawContext, rect: UiRect, anim: Float) {
-        UiWidgets.toggleProgress(context, rect, anim, lastMouseX, lastMouseY)
+    private fun drawButton(context: DrawContext, rect: UiRect, label: String, enabled: Boolean, style: ButtonStyle) {
+        UiWidgets.button(context, client.textRenderer, rect, label, lastMouseX, lastMouseY, enabled, style)
     }
 
-    private fun drawButton(context: DrawContext, rect: UiRect, label: String, enabled: Boolean) {
-        UiWidgets.button(
-            context,
-            client.textRenderer,
-            rect,
-            label,
-            lastMouseX,
-            lastMouseY,
-            enabled,
-            ButtonStyle.SECONDARY
-        )
+    private fun stateBadge(state: UpdateState): String = when (state) {
+        UpdateState.UNKNOWN -> "Status unbekannt"
+        UpdateState.CHECKING -> "Suche nach Updates…"
+        UpdateState.UP_TO_DATE -> "Aktuell"
+        UpdateState.UPDATE_AVAILABLE -> "Update verfügbar"
+        UpdateState.DOWNLOADING -> "Download läuft"
+        UpdateState.VERIFYING -> "Prüfung läuft"
+        UpdateState.INSTALLING -> "Installation läuft"
+        UpdateState.PENDING_RESTART -> "Neustart nötig"
+        UpdateState.ERROR -> "Fehler"
     }
 
     private fun statusLine(state: UpdateState, message: String?, available: String?): String {
         if (!message.isNullOrBlank()) return message
         return when (state) {
-            UpdateState.UNKNOWN -> "Update status unknown"
-            UpdateState.CHECKING -> "Checking for updates…"
-            UpdateState.UP_TO_DATE -> "HugoUtils is up to date"
-            UpdateState.UPDATE_AVAILABLE -> "Update available: ${available ?: ""}".trim()
-            UpdateState.DOWNLOADING -> "Downloading update…"
-            UpdateState.VERIFYING -> "Verifying checksum…"
-            UpdateState.INSTALLING -> "Installing update…"
-            UpdateState.PENDING_RESTART -> "Restart Minecraft to load ${available ?: "the update"}"
-            UpdateState.ERROR -> "Update check failed"
+            UpdateState.UNKNOWN -> "Noch nicht geprüft."
+            UpdateState.CHECKING -> "Release-Infos werden geladen…"
+            UpdateState.UP_TO_DATE -> "HugoUtils ist auf dem neuesten Stand."
+            UpdateState.UPDATE_AVAILABLE -> "Version ${available ?: ""} steht bereit.".trim()
+            UpdateState.DOWNLOADING -> "Update wird heruntergeladen…"
+            UpdateState.VERIFYING -> "Checksumme wird geprüft…"
+            UpdateState.INSTALLING -> "Update wird installiert…"
+            UpdateState.PENDING_RESTART -> "Starte Minecraft neu, um ${available ?: "das Update"} zu laden."
+            UpdateState.ERROR -> "Update-Check fehlgeschlagen."
         }
     }
 
@@ -161,5 +201,12 @@ class UpdateConfigPage : ConfigPage {
         UpdateState.UPDATE_AVAILABLE, UpdateState.PENDING_RESTART -> HugoTheme.accent
         UpdateState.UP_TO_DATE -> HugoTheme.success
         else -> HugoTheme.textMuted
+    }
+
+    private fun statusBorder(state: UpdateState): Int = when (state) {
+        UpdateState.ERROR -> HugoTheme.danger
+        UpdateState.UPDATE_AVAILABLE, UpdateState.PENDING_RESTART -> HugoTheme.accent
+        UpdateState.UP_TO_DATE -> HugoTheme.success
+        else -> HugoTheme.cardBorder
     }
 }

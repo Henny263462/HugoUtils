@@ -40,6 +40,7 @@ object ConfigManager {
         val source = if (Files.exists(settingsPath)) settingsPath else legacyCorePath
         if (!Files.exists(source)) {
             loaded = true
+            applyUiMetrics()
             save()
             return
         }
@@ -60,6 +61,7 @@ object ConfigManager {
             logger.warn("Konnte Config nicht laden.", exception)
         }
         loaded = true
+        applyUiMetrics()
         save()
     }
 
@@ -82,8 +84,48 @@ object ConfigManager {
     fun update(mutator: (ModConfig) -> Unit) {
         mutator(config)
         config.clamp()
+        applyUiMetrics()
         save()
     }
+
+    fun pinnedMarketItems(): List<String> = config.pinnedMarketItems.toList()
+
+    fun isPinnedMarketItem(id: String): Boolean = config.pinnedMarketItems.contains(id)
+
+    fun togglePinnedMarketItem(id: String) {
+        val next = ArrayList(config.pinnedMarketItems)
+        if (!next.remove(id)) next.add(0, id)
+        config.pinnedMarketItems = next
+        requestSave()
+    }
+
+    fun priceAlerts(): List<PriceAlert> = config.priceAlerts.toList()
+
+    fun upsertPriceAlert(alert: PriceAlert) {
+        if (alert.itemId.isBlank() || alert.target <= 0.0) return
+        val next = ArrayList(config.priceAlerts.filter { it.itemId != alert.itemId })
+        next.add(0, alert)
+        config.priceAlerts = next
+        requestSave()
+    }
+
+    fun removePriceAlert(itemId: String) {
+        config.priceAlerts = ArrayList(config.priceAlerts.filter { it.itemId != itemId })
+        requestSave()
+    }
+
+    fun applyUiMetrics() {
+        dev.henny.hugoutils.ui.UiMetrics.corner = config.uiCornerRadius
+    }
+
+    fun setUiCornerRadius(value: Int) {
+        config.uiCornerRadius = value.coerceIn(0, 12)
+        applyUiMetrics()
+        requestSave()
+    }
+
+    @Synchronized
+    fun moduleData(id: String): JsonObject? = sections[id]?.write() ?: pendingSections[id]
 
     @Synchronized
     fun registerSection(section: ConfigSection, legacyPath: Path? = null) {
@@ -205,6 +247,32 @@ object ConfigManager {
         if (tree.has("uiDebugCommandsEnabled")) {
             config.uiDebugCommandsEnabled = value.uiDebugCommandsEnabled
         }
+        if (tree.has("lastSettingsPage") && value.lastSettingsPage.isNotBlank()) {
+            config.lastSettingsPage = value.lastSettingsPage
+        }
+        if (tree.has("lastOpenedPage") && value.lastOpenedPage.isNotBlank()) {
+            config.lastOpenedPage = value.lastOpenedPage
+        }
+        if (tree.has("restoreLastPage")) {
+            config.restoreLastPage = value.restoreLastPage
+        }
+        if (tree.has("marketListView")) {
+            config.marketListView = value.marketListView
+        }
+        if (tree.has("pinnedMarketItems")) {
+            config.pinnedMarketItems.clear()
+            config.pinnedMarketItems.addAll(value.pinnedMarketItems.filter { it.isNotBlank() }.distinct())
+        }
+        if (tree.has("uiCornerRadius")) {
+            config.uiCornerRadius = value.uiCornerRadius
+        }
+        if (tree.has("priceAlerts")) {
+            config.priceAlerts.clear()
+            config.priceAlerts.addAll(
+                value.priceAlerts.filter { it.itemId.isNotBlank() && it.target > 0.0 }
+            )
+        }
+        applyUiMetrics()
         val dropped = tree.getAsJsonObject("droppedItemGlow")
         val held = tree.getAsJsonObject("heldItemGlow")
         val player = tree.getAsJsonObject("playerGlow")

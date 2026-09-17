@@ -4,8 +4,8 @@ import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.ui.ConfigCategory
 import dev.henny.hugoutils.client.ui.ConfigPage
 import dev.henny.hugoutils.client.ui.HugoTheme
-import dev.henny.hugoutils.ui.ColorPicker
 import dev.henny.hugoutils.ui.ButtonStyle
+import dev.henny.hugoutils.ui.ColorPicker
 import dev.henny.hugoutils.ui.UiDraw
 import dev.henny.hugoutils.ui.UiRect
 import dev.henny.hugoutils.ui.UiWidgets
@@ -13,84 +13,75 @@ import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
-import org.lwjgl.glfw.GLFW
+import net.minecraft.item.ItemStack
 import kotlin.math.roundToInt
 
 class BlockHighlightConfigPage : ConfigPage {
     override val category = ConfigCategory.BLOCKS
     private val client = MinecraftClient.getInstance()
     private val picker by lazy { ColorPicker(client.textRenderer) { save() } }
+    private val blocks by lazy { HighlightBlockPicker(client.textRenderer) { save() } }
     private var frame = UiRect(0, 0, 0, 0)
     private var toggle = UiRect(0, 0, 0, 0)
-    private var input = UiRect(0, 0, 0, 0)
-    private var addButton = UiRect(0, 0, 0, 0)
+    private var editor = UiRect(0, 0, 0, 0)
     private var removeButton = UiRect(0, 0, 0, 0)
     private var opacity = UiRect(0, 0, 0, 0)
-    private var listArea = UiRect(0, 0, 0, 0)
-    private var entryHits = emptyList<Pair<String, UiRect>>()
-    private var firstEntry = 0
     private var selected: String? = null
-    private var inputText = ""
-    private var inputFocused = false
-    private var status = ""
+    private var status = "Nur der Block unter dem Fadenkreuz"
     private var draggingOpacity = false
     private var mouseX = 0.0
     private var mouseY = 0.0
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        frame = UiRect(x, y, width, 246)
-        toggle = UiRect(frame.right() - 42, y + 9, 32, 14)
-        input = UiRect(x + 10, y + 40, width - 102, 22)
-        addButton = UiRect(input.right() + 6, y + 40, 76, 22)
-        listArea = UiRect(x + 10, y + 70, width / 2 - 15, 152)
-        val allNames = BlockHighlightConfig.entries.keys.toList()
-        firstEntry = firstEntry.coerceIn(0, (allNames.size - 7).coerceAtLeast(0))
-        val names = allNames.drop(firstEntry).take(7)
-        entryHits = names.mapIndexed { index, name ->
-            name to UiRect(listArea.x, listArea.y + index * 22, listArea.w, 20)
+        val h = height.coerceAtLeast(320)
+        frame = UiRect(x, y, width, h)
+        toggle = UiRect(frame.right - 42, y + 10, 32, 14)
+        picker.layout(x + 10, y, 100, 72)
+        val editorH = picker.height() + 10
+        editor = UiRect(x + 8, y + h - editorH - 18, width - 16, editorH)
+        picker.layout(editor.x + 8, editor.y + 8, 100, 72)
+        val controlsX = picker.hueBar.right + 12
+        val controlsW = (frame.right - 18 - controlsX).coerceAtLeast(80)
+        opacity = UiRect(controlsX, editor.y + 10, controlsW, 20)
+        removeButton = UiRect(controlsX, opacity.bottom + 10, controlsW, 22)
+        val pickerTop = editor.y - 8
+        blocks.layout(x + 10, y + 40, width - 20, (pickerTop - (y + 40)).coerceAtLeast(90))
+        val current = selected
+        if (current == null || current !in BlockHighlightConfig.entries) {
+            selected = BlockHighlightConfig.keys().firstOrNull()
         }
-        picker.layout(x + width / 2 + 5, y + 70, 82, 56)
-        opacity = UiRect(x + width / 2 + 5, y + 170, width / 2 - 15, 20)
-        removeButton = UiRect(x + width / 2 + 5, y + 200, width / 2 - 15, 22)
-        if (selected !in BlockHighlightConfig.entries) selected = BlockHighlightConfig.entries.keys.firstOrNull()
+        blocks.selectedId = selected
         return frame.h
     }
+
+    override fun hoveredStack(): ItemStack? = blocks.hoveredStack
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int) {
         this.mouseX = mouseX.toDouble()
         this.mouseY = mouseY.toDouble()
         val font = client.textRenderer
-        UiDraw.panel(context, frame, HugoTheme.card, HugoTheme.cardBorder)
-        context.drawText(font, "Block Highlight", frame.x + 10, frame.y + 12, HugoTheme.text, false)
-        context.drawText(font, "Nur der anvisierte Block wird eingefärbt.", frame.x + 112, frame.y + 12, HugoTheme.textDim, false)
-        drawToggle(context)
-        drawInput(context)
-        drawButton(context, addButton, "Hinzufügen", true)
-
-        if (entryHits.isEmpty()) {
-            context.drawText(font, "Noch keine Block-IDs", frame.x + 12, frame.y + 78, HugoTheme.textDim, false)
-        }
-        entryHits.forEach { (id, rect) ->
-            val active = id == selected
-            val hovered = rect.contains(this.mouseX, this.mouseY)
-            UiDraw.fill(context, rect, if (active) HugoTheme.accentSoft else if (hovered) 0x18FFFFFF else HugoTheme.inset)
-            UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (active) HugoTheme.accent else HugoTheme.cardBorder)
-            context.drawText(font, UiDraw.ellipsize(font, id, rect.w - 12), rect.x + 6, rect.y + 6, HugoTheme.text, false)
-        }
-
+        UiWidgets.card(context, frame)
+        UiWidgets.heading(
+            context,
+            font,
+            frame.x + 10,
+            frame.y + 8,
+            "Block-Highlight",
+            "${BlockHighlightConfig.keys().size} Blöcke · nur unter dem Fadenkreuz"
+        )
+        UiWidgets.toggle(context, toggle, BlockHighlightConfig.enabled, this.mouseX, this.mouseY, key = "highlight-enabled")
+        blocks.selectedId = selected
+        blocks.render(context, mouseX, mouseY)
+        UiDraw.panel(context, editor, HugoTheme.inset, HugoTheme.cardBorder)
         currentStyle()?.let { style ->
             picker.render(context, style)
-            context.drawText(font, "Deckkraft", opacity.x, opacity.y, HugoTheme.textMuted, false)
-            val value = "${(style.opacity * 100).roundToInt()}%"
-            context.drawText(font, value, opacity.right() - font.getWidth(value), opacity.y, HugoTheme.text, false)
-            val trackY = opacity.y + 12
-            UiDraw.fill(context, opacity.x, trackY, opacity.w, 6, HugoTheme.inset)
-            UiDraw.fill(context, opacity.x + 1, trackY + 1, ((opacity.w - 2) * style.opacity).roundToInt(), 4, HugoTheme.accent)
-            drawButton(context, removeButton, "Eintrag entfernen", true)
-        }
-        if (status.isNotBlank()) {
-            context.drawText(font, UiDraw.ellipsize(font, status, frame.w - 20), frame.x + 10, frame.bottom() - 14, HugoTheme.textDim, false)
-        }
+            UiWidgets.labeledSlider(
+                context, font, opacity, "Deckkraft", "${(style.opacity * 100).roundToInt()}%",
+                style.opacity, this.mouseX, this.mouseY, key = "highlight-opacity"
+            )
+            UiWidgets.button(context, font, removeButton, "Entfernen", this.mouseX, this.mouseY, style = ButtonStyle.DANGER, key = "highlight-remove")
+        } ?: context.drawText(font, "Block im Raster wählen", editor.x + 12, editor.y + 16, HugoTheme.textDim, false)
+        context.drawText(font, UiDraw.ellipsize(font, status, frame.w - 20), frame.x + 10, frame.bottom - 12, HugoTheme.textDim, false)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean {
@@ -99,37 +90,25 @@ class BlockHighlightConfigPage : ConfigPage {
             save()
             return true
         }
-        if (input.contains(mouseX, mouseY)) {
-            inputFocused = true
+        if (blocks.mouseClicked(mouseX, mouseY)) {
             picker.unfocus()
-            return true
-        }
-        inputFocused = false
-        if (addButton.contains(mouseX, mouseY)) {
-            val added = BlockHighlightConfig.add(inputText)
-            status = if (added == null) "Ungültige oder unbekannte Block-ID" else "Block hinzugefügt"
-            if (added != null) {
-                selected = added
-                inputText = ""
-                save()
-            }
-            return true
-        }
-        entryHits.firstOrNull { it.second.contains(mouseX, mouseY) }?.let {
-            selected = it.first
-            picker.unfocus()
+            blocks.clickedId?.let { selected = it }
+            status = "Highlight gilt nur unter dem Fadenkreuz"
             return true
         }
         val style = currentStyle()
-        if (style != null && picker.mouseClicked(style, mouseX, mouseY)) return true
+        if (style != null && picker.mouseClicked(style, mouseX, mouseY)) {
+            blocks.unfocus()
+            return true
+        }
         if (style != null && opacity.contains(mouseX, mouseY)) {
             draggingOpacity = true
             applyOpacity(mouseX)
             return true
         }
         if (style != null && removeButton.contains(mouseX, mouseY)) {
-            BlockHighlightConfig.entries.remove(selected)
-            selected = BlockHighlightConfig.entries.keys.firstOrNull()
+            BlockHighlightConfig.remove(selected)
+            selected = BlockHighlightConfig.keys().firstOrNull()
             save()
             return true
         }
@@ -137,8 +116,8 @@ class BlockHighlightConfigPage : ConfigPage {
     }
 
     override fun mouseDragged(mouseX: Double, mouseY: Double): Boolean {
-        val style = currentStyle() ?: return false
-        if (picker.mouseDragged(style, mouseX, mouseY)) return true
+        val style = currentStyle()
+        if (style != null && picker.mouseDragged(style, mouseX, mouseY)) return true
         if (draggingOpacity) {
             applyOpacity(mouseX)
             return true
@@ -146,12 +125,8 @@ class BlockHighlightConfigPage : ConfigPage {
         return false
     }
 
-    override fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean {
-        if (!listArea.contains(mouseX, mouseY)) return false
-        val max = (BlockHighlightConfig.entries.size - 7).coerceAtLeast(0)
-        firstEntry = (firstEntry - amount.toInt()).coerceIn(0, max)
-        return true
-    }
+    override fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean =
+        blocks.mouseScrolled(mouseX, mouseY, amount)
 
     override fun mouseReleased() {
         picker.mouseReleased()
@@ -161,39 +136,17 @@ class BlockHighlightConfigPage : ConfigPage {
     override fun keyPressed(input: KeyInput): Boolean {
         val style = currentStyle()
         if (style != null && picker.keyPressed(style, input)) return true
-        if (!inputFocused) return false
-        return when (input.key()) {
-            GLFW.GLFW_KEY_BACKSPACE -> {
-                if (inputText.isNotEmpty()) inputText = inputText.dropLast(1)
-                true
-            }
-            GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-                val added = BlockHighlightConfig.add(inputText)
-                if (added != null) {
-                    selected = added
-                    inputText = ""
-                    save()
-                }
-                true
-            }
-            GLFW.GLFW_KEY_ESCAPE -> {
-                inputFocused = false
-                true
-            }
-            else -> false
-        }
+        return blocks.keyPressed(input)
     }
 
     override fun charTyped(input: CharInput): Boolean {
         val style = currentStyle()
         if (style != null && picker.charTyped(style, input)) return true
-        if (!inputFocused || !input.isValidChar || inputText.length >= 80) return false
-        inputText += input.asString()
-        return true
+        return blocks.charTyped(input)
     }
 
     override fun resetUi() {
-        inputFocused = false
+        blocks.unfocus()
         picker.unfocus()
     }
 
@@ -207,28 +160,4 @@ class BlockHighlightConfigPage : ConfigPage {
     }
 
     private fun save() = ConfigManager.requestSave()
-
-    private fun drawInput(context: DrawContext) {
-        UiDraw.panel(context, input, HugoTheme.inset, if (inputFocused) HugoTheme.accent else HugoTheme.cardBorder)
-        val shown = inputText.ifBlank { "minecraft:stone" }
-        context.drawText(client.textRenderer, UiDraw.ellipsize(client.textRenderer, shown, input.w - 10), input.x + 5, input.y + 7,
-            if (inputText.isBlank()) HugoTheme.textDim else HugoTheme.text, false)
-    }
-
-    private fun drawToggle(context: DrawContext) {
-        UiWidgets.toggle(context, toggle, BlockHighlightConfig.enabled, mouseX, mouseY)
-    }
-
-    private fun drawButton(context: DrawContext, rect: UiRect, text: String, enabled: Boolean) {
-        UiWidgets.button(
-            context,
-            client.textRenderer,
-            rect,
-            text,
-            mouseX,
-            mouseY,
-            enabled,
-            ButtonStyle.SECONDARY
-        )
-    }
 }

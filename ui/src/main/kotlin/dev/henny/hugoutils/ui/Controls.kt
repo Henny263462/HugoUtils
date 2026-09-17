@@ -46,7 +46,7 @@ open class Button(
         val fill = Theme.lerpColor(base, hover, interaction.hover.value * .72f)
         val border = Theme.lerpColor(t.border, if (style == ButtonStyle.DANGER) t.danger else t.accent, interaction.hover.value)
         UiDraw.shadow(context, bounds, .25f * interaction.hover.value)
-        UiDraw.panel(context, bounds, fill, border)
+        UiDraw.panel(context, bounds, fill, border, UiMetrics.CORNER_SM)
         val shown = UiDraw.ellipsize(renderer, label, bounds.w - 8)
         val offset = interaction.press.value.roundToInt()
         context.drawText(renderer, shown, bounds.x + (bounds.w - renderer.getWidth(shown)) / 2, bounds.y + (bounds.h - 8) / 2 + offset, if (enabled) t.text else t.textDim, false)

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils-sky",
+  "version": "${version}",
+  "name": "HugoUtils Sky",
+  "description": "Asynchronous resource-pack sky scanner and instant sky switcher.",
+  "authors": ["henny"],
+  "license": "Apache-2.0",
+  "icon": "assets/hugoutils/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.henny.hugoutils.sky.SkyMod"
+    ]
+  },
+  "mixins": [
+    "hugoutils-sky.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}",
+    "hugoutils-core": "${version}",
+    "hugoutils-ui": "${version}"
+  }
+}

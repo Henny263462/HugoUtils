@@ -24,6 +24,8 @@
     { "file": "META-INF/jars/hugoutils-itemglow-${version}.jar" },
     { "file": "META-INF/jars/hugoutils-playerglow-${version}.jar" },
     { "file": "META-INF/jars/hugoutils-blockhighlight-${version}.jar" },
+    { "file": "META-INF/jars/hugoutils-blockoverlay-${version}.jar" },
+    { "file": "META-INF/jars/hugoutils-sky-${version}.jar" },
     { "file": "META-INF/jars/fastitems-${version}.jar" }
   ],
   "depends": {

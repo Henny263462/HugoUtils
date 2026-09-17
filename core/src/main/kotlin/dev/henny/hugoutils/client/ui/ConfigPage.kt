@@ -14,6 +14,8 @@ interface ConfigPage : dev.henny.hugoutils.ui.UiPage {
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int)
 
     override fun mouseClicked(mouseX: Double, mouseY: Double): Boolean = false
+    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean =
+        if (button == 0) mouseClicked(mouseX, mouseY) else false
     override fun mouseDragged(mouseX: Double, mouseY: Double): Boolean = false
     override fun mouseReleased() {}
     override fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean = false
@@ -23,6 +25,9 @@ interface ConfigPage : dev.henny.hugoutils.ui.UiPage {
     override fun resetUi() {}
 
     override fun hoveredStack(): ItemStack? = null
+    override fun hoveredTooltip(): String? = null
 
     override fun persist()
+
+    fun onShown() {}
 }

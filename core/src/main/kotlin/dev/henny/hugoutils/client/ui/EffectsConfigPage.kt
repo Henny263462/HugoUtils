@@ -16,6 +16,9 @@ class EffectsConfigPage : ConfigPage {
     private val particleIds by lazy { Registries.PARTICLE_TYPE.ids.map { it.toString() }.sorted() }
     private var selectedIndex = 0
     private var frame = UiRect(0, 0, 0, 0)
+    private var hero = UiRect(0, 0, 0, 0)
+    private var global = UiRect(0, 0, 0, 0)
+    private var overrideCard = UiRect(0, 0, 0, 0)
     private var particlesToggle = UiRect(0, 0, 0, 0)
     private var previousType = UiRect(0, 0, 0, 0)
     private var nextType = UiRect(0, 0, 0, 0)
@@ -29,21 +32,23 @@ class EffectsConfigPage : ConfigPage {
     private var mouseY = 0.0
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        frame = UiRect(x, y, width, 426)
-        particlesToggle = UiRect(x + width - 42, y + 34, 32, 14)
         sliders.clear()
-        SliderId.entries.take(7).forEachIndexed { index, id ->
-            sliders[id] = UiRect(x + width - 150, y + 62 + index * 25, 140, 12)
-        }
-        previousType = UiRect(x + 10, y + 252, 24, 20)
-        nextType = UiRect(x + width - 34, y + 252, 24, 20)
-        searchType = UiRect(previousType.right() + 5, y + 252, width - 78, 20)
-        customToggle = UiRect(x + width - 42, y + 281, 32, 14)
-        typeToggle = UiRect(x + width - 42, y + 306, 32, 14)
-        SliderId.entries.drop(7).forEachIndexed { index, id ->
-            sliders[id] = UiRect(x + width - 150, y + 333 + index * 25, 140, 12)
-        }
-        resetButton = UiRect(x + 10, y + 401, width - 20, 18)
+        hero = UiRect(x + 8, y + 8, width - 16, 58)
+        particlesToggle = UiRect(hero.right() - 42, hero.y + 14, 32, 14)
+        global = UiRect(x + 8, hero.bottom() + 8, width - 16, 28 + GLOBAL.size * SLIDER_H + 12)
+        placeSliders(GLOBAL, global.x + 12, global.y + 28, global.w - 24)
+        val typeTop = global.bottom() + 8
+        val typeH = 28 + 26 + 2 * 24 + TYPE.size * SLIDER_H + 36
+        overrideCard = UiRect(x + 8, typeTop, width - 16, typeH)
+        previousType = UiRect(overrideCard.x + 12, overrideCard.y + 28, 24, 22)
+        nextType = UiRect(overrideCard.right() - 36, overrideCard.y + 28, 24, 22)
+        searchType = UiRect(previousType.right() + 6, overrideCard.y + 28, nextType.x - previousType.right() - 12, 22)
+        customToggle = UiRect(overrideCard.right() - 44, searchType.bottom() + 10, 32, 14)
+        typeToggle = UiRect(overrideCard.right() - 44, customToggle.bottom() + 10, 32, 14)
+        placeSliders(TYPE, overrideCard.x + 12, typeToggle.bottom() + 10, overrideCard.w - 24)
+        val lastType = sliders[SliderId.TYPE_OPACITY] ?: typeToggle
+        resetButton = UiRect(overrideCard.x + 12, lastType.bottom() + 10, overrideCard.w - 24, 20)
+        frame = UiRect(x, y, width, overrideCard.bottom() + 8 - y)
         return frame.h
     }
 
@@ -51,11 +56,14 @@ class EffectsConfigPage : ConfigPage {
         this.mouseX = mouseX.toDouble()
         this.mouseY = mouseY.toDouble()
         val font = client.textRenderer
-        UiDraw.panel(context, frame, HugoTheme.card, HugoTheme.cardBorder)
-        context.drawText(font, "Partikel- und Bildschirm-Effekte", frame.x + 10, frame.y + 12, HugoTheme.text, false)
-        context.drawText(font, "Partikel aktivieren", frame.x + 10, frame.y + 37, HugoTheme.text, false)
-        drawToggle(context, particlesToggle, EffectsConfig.particlesEnabled)
-
+        ModPageChrome.hero(
+            context, font, hero,
+            "Effekte",
+            "Partikel, Feuer, Portal und Übelkeit unabhängig von Vanilla.",
+            EffectsConfig.particlesEnabled, mouseX.toDouble(), mouseY.toDouble(), particlesToggle
+        )
+        UiWidgets.hoverCard(context, global, mouseX.toDouble(), mouseY.toDouble(), key = "effects-global")
+        context.drawText(font, "Welt & Bildschirm", global.x + 12, global.y + 10, HugoTheme.text, false)
         drawSlider(context, SliderId.DENSITY, "Partikeldichte", EffectsConfig.particleDensity)
         drawSlider(context, SliderId.SIZE, "Partikelgröße", EffectsConfig.particleSize / 3f)
         drawSlider(context, SliderId.OPACITY, "Partikeldeckkraft", EffectsConfig.particleOpacity)
@@ -64,15 +72,23 @@ class EffectsConfigPage : ConfigPage {
         drawSlider(context, SliderId.NAUSEA, "Übelkeit", EffectsConfig.nauseaScale)
         drawSlider(context, SliderId.WOBBLE, "Nausea-Wobble", EffectsConfig.nauseaWobbleScale)
 
-        context.drawText(font, "Override pro Partikeltyp", frame.x + 10, frame.y + 232, HugoTheme.text, false)
+        UiWidgets.hoverCard(context, overrideCard, mouseX.toDouble(), mouseY.toDouble(), key = "effects-type")
+        context.drawText(font, "Pro Partikeltyp", overrideCard.x + 12, overrideCard.y + 10, HugoTheme.text, false)
         drawButton(context, previousType, "‹")
         drawButton(context, nextType, "›")
         val typeId = selectedTypeId()
-        drawButton(context, searchType, "⌕  $typeId")
+        drawButton(context, searchType, UiDraw.ellipsize(font, typeId, searchType.w - 16))
         val override = EffectsConfig.particleOverrides[typeId]
-        context.drawText(font, "Eigene Werte", frame.x + 10, frame.y + 284, HugoTheme.text, false)
+        context.drawText(font, "Eigene Werte", overrideCard.x + 12, customToggle.y + 3, HugoTheme.text, false)
         drawToggle(context, customToggle, override != null)
-        context.drawText(font, "Typ aktivieren", frame.x + 10, frame.y + 309, if (override != null) HugoTheme.text else HugoTheme.textDim, false)
+        context.drawText(
+            font,
+            "Typ aktivieren",
+            overrideCard.x + 12,
+            typeToggle.y + 3,
+            if (override != null) HugoTheme.text else HugoTheme.textDim,
+            false
+        )
         drawToggle(context, typeToggle, override?.enabled ?: true, override != null)
         drawSlider(context, SliderId.TYPE_DENSITY, "Dichte", override?.density ?: 1f, override != null)
         drawSlider(context, SliderId.TYPE_SIZE, "Größe", (override?.size ?: 1f) / 3f, override != null)
@@ -144,7 +160,8 @@ class EffectsConfigPage : ConfigPage {
 
     private fun applySlider(id: SliderId, mouseX: Double) {
         val rect = sliders[id] ?: return
-        val normalized = ((mouseX - rect.x) / rect.w).toFloat().coerceIn(0f, 1f)
+        val track = UiRect(rect.x, rect.y + 12, rect.w, 6)
+        val normalized = ((mouseX - track.x) / track.w.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f)
         val override = EffectsConfig.particleOverrides[selectedTypeId()]
         when (id) {
             SliderId.DENSITY -> EffectsConfig.particleDensity = normalized
@@ -163,15 +180,22 @@ class EffectsConfigPage : ConfigPage {
 
     private fun drawSlider(context: DrawContext, id: SliderId, label: String, normalized: Float, enabled: Boolean = true) {
         val rect = sliders.getValue(id)
-        val font = client.textRenderer
-        val color = if (enabled) HugoTheme.text else HugoTheme.textDim
-        context.drawText(font, label, frame.x + 10, rect.y + 2, color, false)
-        UiWidgets.sliderTrack(context, rect, normalized, rect.contains(mouseX, mouseY), enabled, id)
         val value = when (id) {
             SliderId.SIZE, SliderId.TYPE_SIZE -> "%.2f×".format(normalized * 3f)
             else -> "${(normalized * 100).roundToInt()}%"
         }
-        context.drawText(font, value, rect.right() - font.getWidth(value) - 3, rect.y + 2, color, false)
+        UiWidgets.labeledSlider(
+            context,
+            client.textRenderer,
+            rect,
+            label,
+            value,
+            normalized,
+            mouseX,
+            mouseY,
+            enabled,
+            id
+        )
     }
 
     private fun drawToggle(context: DrawContext, rect: UiRect, enabled: Boolean, interactive: Boolean = true) {
@@ -182,8 +206,23 @@ class EffectsConfigPage : ConfigPage {
         UiWidgets.button(context, client.textRenderer, rect, label, mouseX, mouseY, style = ButtonStyle.SECONDARY)
     }
 
+    private fun placeSliders(ids: List<SliderId>, x: Int, y: Int, w: Int) {
+        ids.forEachIndexed { index, id ->
+            sliders[id] = UiRect(x, y + index * SLIDER_H, w, 22)
+        }
+    }
+
     private enum class SliderId {
         DENSITY, SIZE, OPACITY, FIRE, PORTAL, NAUSEA, WOBBLE,
         TYPE_DENSITY, TYPE_SIZE, TYPE_OPACITY
+    }
+
+    companion object {
+        private const val SLIDER_H = 28
+        private val GLOBAL = listOf(
+            SliderId.DENSITY, SliderId.SIZE, SliderId.OPACITY,
+            SliderId.FIRE, SliderId.PORTAL, SliderId.NAUSEA, SliderId.WOBBLE
+        )
+        private val TYPE = listOf(SliderId.TYPE_DENSITY, SliderId.TYPE_SIZE, SliderId.TYPE_OPACITY)
     }
 }

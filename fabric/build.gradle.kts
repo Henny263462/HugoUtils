@@ -29,6 +29,8 @@ dependencies {
     include(project(":itemglow"))
     include(project(":playerglow"))
     include(project(":blockhighlight"))
+    include(project(":blockoverlay"))
+    include(project(":sky"))
     include(project(":fastitems"))
 
     // Load the bundled modules as classpath mods in the development runtime
@@ -37,6 +39,8 @@ dependencies {
     common(project(":itemglow", configuration = "namedElements")) { isTransitive = false }
     common(project(":playerglow", configuration = "namedElements")) { isTransitive = false }
     common(project(":blockhighlight", configuration = "namedElements")) { isTransitive = false }
+    common(project(":blockoverlay", configuration = "namedElements")) { isTransitive = false }
+    common(project(":sky", configuration = "namedElements")) { isTransitive = false }
     common(project(":fastitems", configuration = "namedElements")) { isTransitive = false }
 }
 

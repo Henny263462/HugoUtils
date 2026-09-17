@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "hugoutils-blockoverlay",
+  "version": "${version}",
+  "name": "HugoUtils Block Overlay",
+  "description": "Persistent block color overlay baked into chunk meshes like a texture pack.",
+  "authors": ["henny"],
+  "license": "Apache-2.0",
+  "icon": "assets/hugoutils/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.henny.hugoutils.blockoverlay.BlockOverlayMod"
+    ]
+  },
+  "mixins": [
+    "hugoutils-blockoverlay.mixins.json",
+    "hugoutils-blockoverlay-indigo.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}",
+    "hugoutils-core": "${version}",
+    "hugoutils-ui": "${version}"
+  }
+}

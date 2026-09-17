@@ -6,28 +6,32 @@ import dev.henny.hugoutils.client.config.GlintStyle
 import dev.henny.hugoutils.client.config.GlintChangeListener
 import dev.henny.hugoutils.client.config.GlowStyle
 import dev.henny.hugoutils.update.UpdateManager
+import dev.henny.hugoutils.ui.Hsv
 import dev.henny.hugoutils.ui.NavigationEntry
-import dev.henny.hugoutils.ui.AnimatedFloat
+import dev.henny.hugoutils.ui.ScreenShell
 import dev.henny.hugoutils.ui.UiFrame
 import dev.henny.hugoutils.ui.UiNavigation
 import net.fabricmc.loader.api.FabricLoader
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.Mouse
 import net.minecraft.client.gui.Click
 import net.minecraft.client.gui.DrawContext
+import net.minecraft.client.gui.screen.GameMenuScreen
 import net.minecraft.client.gui.screen.Screen
+import net.minecraft.client.gui.screen.TitleScreen
 import net.minecraft.client.input.CharInput
 import net.minecraft.client.input.KeyInput
+import net.minecraft.item.ItemStack
 import net.minecraft.text.Text
 import org.lwjgl.glfw.GLFW
 import kotlin.math.roundToInt
 
-class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DISPLAY_NAME)) {
+class HugoScreen(
+    private val initialPageId: String? = null,
+    val parent: Screen? = null
+) : ScreenShell(Text.literal(HugoIds.DISPLAY_NAME)) {
     private var category = ConfigCategory.entries.firstOrNull { it.id == initialPageId }
-        ?: ConfigCategory.DROPPED_GLOW
-    private var selectedPageId = initialPageId ?: ConfigCategory.DROPPED_GLOW.id
-    private var visualsExpanded = true
-    private val expandedNavigation = mutableSetOf(ConfigCategory.VISUALS.id)
-    private val pageTransition = AnimatedFloat(1f, .18f)
+        ?: ConfigCategory.MARKET_HOME
     private var scroll = 0
     private var maxScroll = 0
     private var draggingSlider: SliderId? = null
@@ -49,13 +53,10 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     private var expandedHeldGlow = false
     private var expandedPlayerGlow = false
 
-    private var panel = UiRect(0, 0, 0, 0)
-    private var sidebar = UiRect(0, 0, 0, 0)
-    private var content = UiRect(0, 0, 0, 0)
     private var scissor = UiRect(0, 0, 0, 0)
     private val navHits = ArrayList<Pair<NavigationEntry, UiRect>>()
+    private val subnavHits = ArrayList<Pair<NavigationEntry, UiRect>>()
     private val footerHits = ArrayList<Pair<NavigationEntry, UiRect>>()
-    private var previousCategory = ConfigCategory.DROPPED_GLOW
 
     private var droppedCard = GlowCardLayout()
     private var heldGlowCard = GlowCardLayout()
@@ -65,10 +66,30 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     private var lastMouseX = -1.0
     private var lastMouseY = -1.0
     private var tooltipText: String? = null
+    private val globalSearch = GlobalSearch(
+        onOpenPage = { id -> selectPage(id) },
+        onOpenItem = { id ->
+            selectPage(ConfigCategory.MARKET_ITEMS.id)
+            ConfigPages.forCategory(ConfigCategory.MARKET_ITEMS)
+                .filterIsInstance<MarketConfigPage>()
+                .firstOrNull()
+                ?.openItemId(id)
+        }
+    )
 
     override fun init() {
+        selectedPageId = landingPageId()
+        ConfigCategory.entries.firstOrNull { it.id == selectedPageId }?.let { category = it }
+        val landingChildren = UiNavigation.registry.children(category.id)
+        if (landingChildren.isNotEmpty() && ConfigPages.forId(category.id).isEmpty()) {
+            val remembered = rememberedChild(category, landingChildren)
+            val first = remembered ?: landingChildren.firstOrNull { it.available } ?: landingChildren.first()
+            selectedPageId = first.id
+            ConfigCategory.entries.firstOrNull { it.id == first.id }?.let { category = it }
+        }
         super.init()
         PopupManager.close()
+        MarketLinks.openPage = { selectPage(it) }
         pageTransition.snapTo(1f)
         droppedPicker = ColorPicker(textRenderer) { persist() }
         heldGlowPicker = ColorPicker(textRenderer) { persist() }
@@ -87,16 +108,32 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         expandedPlayerGlow = true
         UiNavigation.registry.entries().flatMap { UiNavigation.registry.pages(it.id) }.forEach { it.resetUi() }
         relayout()
+        notifyShown()
     }
 
-    override fun shouldPause(): Boolean = false
+    override fun close() {
+        client?.setScreen(parent)
+    }
 
-    override fun renderBackground(context: DrawContext, mouseX: Int, mouseY: Int, deltaTicks: Float) {
-        context.fill(0, 0, width, height, HugoTheme.overlay)
+    override fun removed() {
+        UiWidgets.clearAnimationStates()
+        super.removed()
+    }
+
+    override fun subnavParentId(): String? = when (category.group) {
+        NavGroup.MARKET -> ConfigCategory.MARKET.id
+        NavGroup.MODS -> ConfigCategory.MODS.id
+        NavGroup.SETTINGS -> ConfigCategory.SETTINGS.id
+        else -> when (category) {
+            ConfigCategory.MARKET -> ConfigCategory.MARKET.id
+            ConfigCategory.MODS -> ConfigCategory.MODS.id
+            ConfigCategory.SETTINGS -> ConfigCategory.SETTINGS.id
+            else -> null
+        }
     }
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int, deltaTicks: Float) {
-        UiFrame.beginFrame()
+        tickShell()
         relayout()
         lastMouseX = mouseX.toDouble()
         lastMouseY = mouseY.toDouble()
@@ -125,8 +162,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         )
 
         super.render(context, mouseX, mouseY, deltaTicks)
-
-        UiDraw.panel(context, panel, HugoTheme.panel, HugoTheme.panelBorder)
+        renderShell(context)
         drawSidebar(context, mouseX, mouseY)
         drawContent(context, mouseX, mouseY)
         PopupManager.active?.let { popup ->
@@ -135,48 +171,49 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             popup.hoveredStack()?.let { context.drawItemTooltip(textRenderer, it, mouseX, mouseY) }
         }
 
-        val stackTooltip = isBuiltInVisual() && hoveredVisualStack() != null
+        val stackTooltip = hoveredContentStack() != null
         if (!stackTooltip) {
             tooltipText?.let { UiDraw.tooltip(context, textRenderer, it, mouseX, mouseY, width, height) }
         }
     }
 
     private fun relayout() {
-        val margin = if (height < 280) 8 else 14
-        val panelW = (width - margin * 2).coerceIn(360, 680)
-        val panelH = (height - margin * 2).coerceIn(240, 460)
-        panel = UiRect((width - panelW) / 2, (height - panelH) / 2, panelW, panelH)
-        val sidebarW = (panelW * 0.27f).toInt().coerceIn(108, 142)
-        sidebar = UiRect(panel.x, panel.y, sidebarW, panelH)
-        content = UiRect(panel.x + sidebarW + 14, panel.y + 12, panel.w - sidebarW - 26, panel.h - 24)
-        scissor = UiRect(content.x, content.y, content.w, content.h)
+        relayoutShell()
+        globalSearch.layout(content.x, content.y, content.w)
+        scissor = UiRect(content.x, content.y + globalSearch.height(), content.w, (content.h - globalSearch.height()).coerceAtLeast(80))
 
         navHits.clear()
+        subnavHits.clear()
+        footerHits.clear()
         val registry = UiNavigation.registry
         val footerEntries = registry.footerEntries()
-        val footerStart = sidebar.bottom() - 16 - 4 - footerEntries.size * 20
-        val sidebarEntries = registry.roots().flatMap { entry ->
-            if (entry.id in expandedNavigation) listOf(entry) + registry.children(entry.id) else listOf(entry)
+        val footerStart = sidebar.bottom() - 18 - 8 - footerEntries.size * 28
+        val railEntries = registry.roots()
+        var navY = sidebar.y + 34
+        for (entry in railEntries) {
+            navHits += entry to UiRect(sidebar.x + 8, navY, sidebar.w - 16, 24)
+            navY += 28
         }
-        val navStep = ((footerStart - (sidebar.y + 36)) / sidebarEntries.size.coerceAtLeast(1))
-            .coerceIn(13, 20)
-        var navY = sidebar.y + 36
-        for (entry in sidebarEntries) {
-            val indent = if (entry.parentId != null) 10 else 0
-            navHits += entry to UiRect(sidebar.x + 8 + indent, navY - 3, sidebar.w - 16 - indent, navStep.coerceAtMost(18))
-            navY += navStep
-        }
-
-        footerHits.clear()
-        // Version sits at bottom - 16; footer dropdowns stack above it.
         var footerY = footerStart
         for (entry in footerEntries) {
-            footerHits += entry to UiRect(sidebar.x + 8, footerY, sidebar.w - 16, 18)
-            footerY += 20
+            footerHits += entry to UiRect(sidebar.x + 8, footerY, sidebar.w - 16, 24)
+            footerY += 28
+        }
+
+        val parentId = subnavParentId()
+        if (parentId != null && subnav.w > 12) {
+            var subY = subnav.y + 32
+            for (entry in registry.children(parentId).filter { it.available }) {
+                subnavHits += entry to UiRect(subnav.x + 6, subY, (subnav.w - 12).coerceAtLeast(8), 22)
+                subY += 26
+            }
         }
 
         val pages = extraPages()
-        if (pages.isNotEmpty()) {
+        if (pages.size == 1) {
+            val h = pages[0].layout(content.x, scissor.y - scroll, content.w, scissor.h)
+            maxScroll = (h - scissor.h).coerceAtLeast(0)
+        } else if (pages.isNotEmpty()) {
             var y = scissor.y + 4 - scroll
             var totalH = 4
             for (page in pages) {
@@ -212,8 +249,8 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         availableHeight: Int
     ): Int {
         val compact = availableHeight < 276
-        val pickerW = if (compact) 84 else 100
-        val pickerH = if (compact) 56 else 68
+        val pickerW = if (compact) 88 else 112
+        val pickerH = if (compact) 60 else 78
         return when (visual) {
             ConfigCategory.DROPPED_GLOW -> {
                 droppedPicker.layout(x + 10, y + HEADER_H, pickerW, pickerH)
@@ -269,7 +306,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             return HEADER_H
         }
         val pickerBlock = if (sideBySide(cardW, picker)) picker.height() else picker.height() + 66
-        return HEADER_H + pickerBlock + 8 + 26 + 8
+        return HEADER_H + pickerBlock + 8 + 28 + 8
     }
 
     private fun glintCardHeight(expanded: Boolean, picker: ColorPicker, cardW: Int, filter: ItemFilterPanel): Int {
@@ -277,7 +314,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             return HEADER_H
         }
         val pickerBlock = if (sideBySide(cardW, picker)) picker.height() else picker.height() + 44
-        return HEADER_H + 24 + pickerBlock + 8 + 26 + 8
+        return HEADER_H + 24 + pickerBlock + 8 + 28 + 8
     }
 
     private fun layoutGlowCard(
@@ -317,7 +354,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             card.width = UiRect(x + 10, sliderY + 44, w - 20, 20)
         }
         val pickerBlock = if (sideBySide(w, picker)) picker.height() else picker.height() + 66
-        card.filterButton = UiRect(x + 10, y + HEADER_H + pickerBlock + 8, w - 20, 22)
+        card.filterButton = UiRect(x + 10, y + HEADER_H + pickerBlock + 8, w - 20, 24)
         filter?.layout(x, y, 0)
     }
 
@@ -360,20 +397,32 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             card.speed = UiRect(x + 10, sliderY + 22, w - 20, 20)
         }
         val pickerBlock = if (sideBySide(w, picker)) picker.height() else picker.height() + 44
-        card.filterButton = UiRect(x + 10, y + HEADER_H + 24 + pickerBlock + 8, w - 20, 22)
+        card.filterButton = UiRect(x + 10, y + HEADER_H + 24 + pickerBlock + 8, w - 20, 24)
         filter.layout(x, y, 0)
     }
 
     private fun drawSidebar(context: DrawContext, mouseX: Int, mouseY: Int) {
-        UiDraw.fill(context, sidebar.x, sidebar.y, sidebar.w, sidebar.h, HugoTheme.sidebar)
-        context.fill(sidebar.right() - 1, sidebar.y, sidebar.right(), sidebar.bottom(), HugoTheme.panelBorder)
-        context.drawText(textRenderer, HugoIds.DISPLAY_NAME, sidebar.x + 12, sidebar.y + 12, HugoTheme.text, false)
+        context.drawText(textRenderer, HugoIds.DISPLAY_NAME, sidebar.x + 12, sidebar.y + 14, HugoTheme.textMuted, false)
 
+        val activeRail = category.parentId ?: category.id
         for ((entry, hit) in navHits) {
-            drawNavEntry(context, entry, hit, mouseX, mouseY, dropdown = false)
+            drawNavEntry(context, entry, hit, mouseX, mouseY, selected = entry.id == activeRail, compact = false)
         }
         for ((entry, hit) in footerHits) {
-            drawNavEntry(context, entry, hit, mouseX, mouseY, dropdown = true)
+            drawNavEntry(context, entry, hit, mouseX, mouseY, selected = entry.id == selectedPageId, compact = false)
+        }
+
+        if (subnav.w > 12) {
+            context.enableScissor(subnav.x, subnav.y + 8, subnav.right(), subnav.bottom() - 8)
+            context.matrices.pushMatrix()
+            context.matrices.translate((1f - subnavReveal.value) * -16f, 0f)
+            val parentTitle = UiNavigation.registry.entry(subnavParentId().orEmpty())?.title ?: "Mods"
+            context.drawText(textRenderer, parentTitle, subnav.x + 10, subnav.y + 14, HugoTheme.textDim, false)
+            for ((entry, hit) in subnavHits) {
+                drawNavEntry(context, entry, hit, mouseX, mouseY, selected = entry.id == selectedPageId, compact = true)
+            }
+            context.matrices.popMatrix()
+            context.disableScissor()
         }
 
         val version = FabricLoader.getInstance()
@@ -385,7 +434,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             textRenderer,
             versionLabel,
             sidebar.x + 12,
-            sidebar.bottom() - 16,
+            sidebar.bottom() - 18,
             if (UpdateManager.hasUpdate()) HugoTheme.accent else HugoTheme.textDim,
             false
         )
@@ -397,63 +446,12 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         hit: UiRect,
         mouseX: Int,
         mouseY: Int,
-        dropdown: Boolean
+        selected: Boolean,
+        compact: Boolean
     ) {
         val hovered = hit.contains(mouseX.toDouble(), mouseY.toDouble())
-        val selected = entry.id == selectedPageId ||
-            (entry.id == ConfigCategory.VISUALS.id &&
-                UiNavigation.registry.descendants(entry.id).any { it.id == selectedPageId })
-        val textY = hit.y + ((hit.h - 8) / 2).coerceAtLeast(1)
-        if (selected) {
-            UiDraw.fill(context, hit, HugoTheme.accentSoft)
-            context.fill(hit.x, hit.y, hit.x + 2, hit.bottom(), HugoTheme.accent)
-        } else if (hovered && entry.available) {
-            UiDraw.fill(context, hit, 0x18FFFFFF)
-        }
-        val color = when {
-            selected -> HugoTheme.text
-            entry.available -> if (hovered) HugoTheme.text else HugoTheme.textMuted
-            else -> HugoTheme.comingSoon
-        }
-        if (dropdown) {
-            val chevron = if (selected) "▾" else "▸"
-            context.drawText(textRenderer, chevron, hit.x + 6, textY, HugoTheme.textMuted, false)
-            context.drawText(
-                textRenderer,
-                UiDraw.ellipsize(textRenderer, entry.title, hit.w - 22),
-                hit.x + 16,
-                textY,
-                color,
-                false
-            )
-        } else if (UiNavigation.registry.children(entry.id).isNotEmpty()) {
-            context.drawText(
-                textRenderer,
-                if (entry.id in expandedNavigation) "▾" else "▸",
-                hit.x + 6,
-                textY,
-                HugoTheme.textMuted,
-                false
-            )
-            context.drawText(
-                textRenderer,
-                UiDraw.ellipsize(textRenderer, entry.title, hit.w - 22),
-                hit.x + 16,
-                textY,
-                color,
-                false
-            )
-        } else {
-            context.drawText(
-                textRenderer,
-                UiDraw.ellipsize(textRenderer, entry.title, hit.w - 12),
-                hit.x + if (entry.parentId != null) 5 else 8,
-                textY,
-                color,
-                false
-            )
-        }
-        if (dropdown && entry.id == ConfigCategory.UPDATES.id && UpdateManager.hasUpdate() && !selected) {
+        UiWidgets.navItem(context, textRenderer, hit, entry.title, selected, hovered, compact, entry.available, key = entry.id)
+        if (entry.id == ConfigCategory.UPDATES.id && UpdateManager.hasUpdate() && !selected) {
             context.fill(hit.right() - 8, hit.y + 7, hit.right() - 4, hit.y + 11, HugoTheme.accent)
         }
     }
@@ -461,7 +459,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     private fun drawContent(context: DrawContext, mouseX: Int, mouseY: Int) {
         context.enableScissor(scissor.x, scissor.y, scissor.right(), scissor.bottom())
         context.matrices.pushMatrix()
-        context.matrices.translate((1f - pageTransition.value) * 12f, 0f)
+        context.matrices.translate((1f - pageTransition.value) * 24f, 0f)
         val pages = extraPages()
         if (pages.isNotEmpty()) {
             pages.forEach { it.render(context, mouseX, mouseY) }
@@ -471,8 +469,15 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         }
         context.matrices.popMatrix()
         context.disableScissor()
+        globalSearch.render(context, textRenderer, mouseX, mouseY)
         if (pages.isNotEmpty()) {
             UiDraw.scrollbar(context, scissor, scroll, maxScroll)
+            if (tooltipText == null) {
+                tooltipText = pages.firstNotNullOfOrNull { it.hoveredTooltip() }
+            }
+        }
+        extraPages().firstNotNullOfOrNull { it.hoveredStack() }?.let { stack ->
+            context.drawItemTooltip(textRenderer, stack, mouseX, mouseY)
         }
         if (isBuiltInVisual()) {
             hoveredVisualStack()?.let { stack ->
@@ -495,25 +500,28 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         expanded: Boolean,
         filter: ItemFilterPanel?
     ) {
-        UiDraw.panel(context, layout.card, HugoTheme.card, HugoTheme.cardBorder)
-        drawCardHeader(context, layout.card, layout.toggle, layout.helper, title, expanded, toggleAnim, helperText)
+        UiWidgets.hoverCard(context, layout.card, lastMouseX, lastMouseY, key = title)
+        drawCardHeader(context, layout.card, layout.toggle, layout.helper, title, expanded, toggleAnim, helperText, Hsv.toArgb(style))
         if (!expanded) {
             return
         }
         picker.render(context, style)
         drawSlider(context, layout.transparency, "Deckkraft", style.opacity, transparencyId)
-        if (style === ConfigManager.config.heldItemGlow) {
-            drawSlider(context, layout.width, "Konturbreite: ${style.thicknessPixels}px",
-                (style.thicknessPixels - 1) / 3f, widthId)
-        }
-                drawFilterButton(context, layout.filterButton, if (filter == null) "Spieler & Farben…" else "Items / Blöcke auswählen…")
+        drawSlider(
+            context,
+            layout.width,
+            "Konturbreite: ${style.thicknessPixels}px",
+            (style.thicknessPixels - 1) / 3f,
+            widthId
+        )
+        drawFilterButton(context, layout.filterButton, if (filter == null) "Spieler & Farben…" else "Items / Blöcke auswählen…")
     }
 
     private fun drawGlintCard(context: DrawContext) {
         val layout = glintCard
         val glint = ConfigManager.config.heldGlint
         val mode = glint.mode()
-        UiDraw.panel(context, layout.card, HugoTheme.card, HugoTheme.cardBorder)
+        UiWidgets.hoverCard(context, layout.card, lastMouseX, lastMouseY, key = "Hand-Glint")
         drawCardHeader(context, layout.card, layout.toggle, layout.helper, "Hand-Glint", expandedGlint, toggleAnimGlint, GLINT_HELPER)
         if (!expandedGlint) {
             return
@@ -545,9 +553,13 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
 
     private fun drawFilterButton(context: DrawContext, rect: UiRect, label: String) {
         val hovered = rect.contains(lastMouseX, lastMouseY)
-        UiDraw.fill(context, rect, if (hovered) HugoTheme.accentSoft else HugoTheme.inset)
-        UiDraw.border(context, rect.x, rect.y, rect.w, rect.h, if (hovered) HugoTheme.accent else HugoTheme.cardBorder)
-        context.drawText(textRenderer, label, rect.x + 7, rect.y + 7, if (hovered) HugoTheme.text else HugoTheme.textMuted, false)
+        UiDraw.panel(
+            context,
+            rect,
+            if (hovered) HugoTheme.accentSoft else HugoTheme.inset,
+            if (hovered) HugoTheme.accent else HugoTheme.cardBorder
+        )
+        context.drawText(textRenderer, label, rect.x + 8, rect.y + (rect.h - 8) / 2, if (hovered) HugoTheme.text else HugoTheme.textMuted, false)
     }
 
     private fun drawCardHeader(
@@ -558,11 +570,31 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         title: String,
         expanded: Boolean,
         toggleAnim: Float,
-        helperText: String
+        helperText: String,
+        swatch: Int? = null
     ) {
-        val chevron = if (expanded) "▾" else "▸"
-        context.drawText(textRenderer, chevron, card.x + 10, card.y + 10, HugoTheme.textMuted, false)
-        context.drawText(textRenderer, title, card.x + 22, card.y + 9, HugoTheme.text, false)
+        swatch?.let { color ->
+            UiDraw.panel(context, UiRect(card.x + 10, card.y + 12, 14, 14), color, HugoTheme.cardBorder)
+        }
+        val textX = card.x + if (swatch != null) 30 else 12
+        context.drawText(textRenderer, title, textX, card.y + 8, HugoTheme.text, false)
+        context.drawText(
+            textRenderer,
+            UiDraw.ellipsize(textRenderer, helperText.substringBefore('\n'), card.w - 90),
+            textX,
+            card.y + 22,
+            HugoTheme.textMuted,
+            false
+        )
+        val badge = if (toggleAnim > 0.5f) "Aktiv" else "Aus"
+        context.drawText(
+            textRenderer,
+            badge,
+            textX,
+            card.y + 36,
+            if (toggleAnim > 0.5f) HugoTheme.success else HugoTheme.textDim,
+            false
+        )
         drawToggle(context, toggle, toggleAnim)
         val helperHovered = helper.contains(lastMouseX, lastMouseY)
         UiDraw.helperBadge(context, textRenderer, helper, helperHovered)
@@ -589,33 +621,38 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             val (mx, my) = pointer(click)
             return it.mouseClicked(mx, my)
         }
+        val (mx, my) = pointer(click)
+        if (click.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            for (page in extraPages()) {
+                if (page.mouseClicked(mx, my, GLFW.GLFW_MOUSE_BUTTON_RIGHT)) {
+                    return true
+                }
+            }
+            return super.mouseClicked(click, doubled)
+        }
         if (click.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return super.mouseClicked(click, doubled)
         }
         relayout()
-        val (mx, my) = pointer(click)
+        if (globalSearch.mouseClicked(mx, my)) {
+            unfocusPickers()
+            unfocusFilters()
+            return true
+        }
+        globalSearch.unfocus()
 
         for ((entry, hit) in navHits) {
             if (hit.contains(mx, my)) {
-                if (UiNavigation.registry.children(entry.id).isNotEmpty()) {
-                    if (!expandedNavigation.add(entry.id)) expandedNavigation.remove(entry.id)
-                    visualsExpanded = ConfigCategory.VISUALS.id in expandedNavigation
-                    if (selectedPageId == ConfigCategory.VISUALS.id) {
-                        category = ConfigCategory.DROPPED_GLOW
-                        selectedPageId = category.id
-                    }
-                    scroll = 0
-                    relayout()
-                    unfocusAll()
-                    return true
-                }
-                if (entry.available && entry.id != selectedPageId) {
-                    previousCategory = if (category.footer) previousCategory else category
-                    ConfigCategory.entries.firstOrNull { it.id == entry.id }?.let { category = it }
-                    selectedPageId = entry.id
-                    pageTransition.snapTo(0f)
-                    pageTransition.animateTo(1f)
-                    scroll = 0
+                selectRail(entry)
+                unfocusAll()
+                return true
+            }
+        }
+        for ((entry, hit) in subnavHits) {
+            if (hit.contains(mx, my)) {
+                if (entry.available) {
+                    if (entry.id != selectedPageId) selectPage(entry.id)
+                    else notifyShown()
                 }
                 unfocusAll()
                 return true
@@ -623,20 +660,8 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         }
         for ((entry, hit) in footerHits) {
             if (hit.contains(mx, my)) {
-                if (entry.available) {
-                    if (entry.id == selectedPageId) {
-                        // Collapse dropdown back to the previous main tab.
-                        category = previousCategory.takeUnless { it.footer || it == ConfigCategory.VISUALS }
-                            ?: ConfigCategory.DROPPED_GLOW
-                        selectedPageId = category.id
-                    } else {
-                        if (!category.footer) previousCategory = category
-                        ConfigCategory.entries.firstOrNull { it.id == entry.id }?.let { category = it }
-                        selectedPageId = entry.id
-                    }
-                    pageTransition.snapTo(0f)
-                    pageTransition.animateTo(1f)
-                    scroll = 0
+                if (entry.available && entry.id != selectedPageId) {
+                    selectPage(entry.id)
                 }
                 unfocusAll()
                 return true
@@ -737,7 +762,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
                 }
             }
             for (page in extraPages()) {
-                if (page.mouseClicked(mx, my)) {
+                if (page.mouseClicked(mx, my, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
                     persist()
                     relayout()
                     return true
@@ -745,7 +770,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
             }
         } else {
             for (page in extraPages()) {
-                if (scissor.contains(mx, my) && page.mouseClicked(mx, my)) {
+                if (scissor.contains(mx, my) && page.mouseClicked(mx, my, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
                     persist()
                     return true
                 }
@@ -842,6 +867,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
 
     override fun keyPressed(input: KeyInput): Boolean {
         PopupManager.active?.let { return it.keyPressed(input) }
+        if (globalSearch.keyPressed(input)) return true
         val extrasHandled = extraPages().any { it.keyPressed(input) }
         val handled = extrasHandled || if (isBuiltInVisual()) {
             (category == ConfigCategory.DROPPED_GLOW &&
@@ -866,6 +892,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
 
     override fun charTyped(input: CharInput): Boolean {
         PopupManager.active?.let { return it.charTyped(input) }
+        if (globalSearch.charTyped(input)) return true
         val extrasHandled = extraPages().any { it.charTyped(input) }
         val handled = extrasHandled || if (isBuiltInVisual()) {
             (category == ConfigCategory.DROPPED_GLOW &&
@@ -888,7 +915,85 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         return super.charTyped(input)
     }
 
-    private fun extraPages(): List<dev.henny.hugoutils.ui.UiPage> = ConfigPages.forId(selectedPageId)
+    private fun extraPages(): List<dev.henny.hugoutils.ui.UiPage> =
+        ConfigPages.forId(selectedPageId ?: ConfigCategory.MARKET_HOME.id)
+
+    private fun landingPageId(): String {
+        val requested = initialPageId ?: selectedPageId
+        if (!requested.isNullOrBlank() && pageAvailable(requested)) return requested
+        val config = ConfigManager.config
+        if (config.restoreLastPage && pageAvailable(config.lastOpenedPage)) return config.lastOpenedPage
+        return ConfigCategory.MARKET_HOME.id
+    }
+
+    private fun pageAvailable(id: String): Boolean {
+        val entry = UiNavigation.registry.entry(id)
+        if (entry != null) return entry.available
+        return ConfigCategory.entries.any { it.id == id && it.available }
+    }
+
+    fun onFlagsChanged() {
+        ConfigPages.refreshAvailability()
+        val current = selectedPageId
+        if (current != null && !pageAvailable(current)) {
+            val parent = category.parentId ?: category.id
+            val fallback = UiNavigation.registry.children(parent).firstOrNull { it.available }
+                ?: UiNavigation.registry.roots().firstOrNull { it.available }
+            if (fallback != null) selectPage(fallback.id) else relayout()
+        } else {
+            relayout()
+        }
+    }
+
+    private fun selectRail(entry: NavigationEntry) {
+        val children = UiNavigation.registry.children(entry.id)
+        if (children.isNotEmpty()) {
+            val alreadyInside = selectedPageId != null &&
+                (children.any { it.id == selectedPageId } ||
+                    UiNavigation.registry.descendants(entry.id).any { it.id == selectedPageId })
+            if (!alreadyInside) {
+                val parentCat = ConfigCategory.entries.firstOrNull { it.id == entry.id }
+                val remembered = parentCat?.let { rememberedChild(it, children) }
+                val first = remembered ?: children.firstOrNull { it.available } ?: children.firstOrNull() ?: return
+                selectPage(first.id)
+            }
+            return
+        }
+        if (entry.available && entry.id != selectedPageId) {
+            selectPage(entry.id)
+        }
+    }
+
+    private fun selectPage(id: String) {
+        ConfigCategory.entries.firstOrNull { it.id == id }?.let { category = it }
+        selectedPageId = id
+        ConfigManager.config.lastOpenedPage = id
+        if (category.group == NavGroup.SETTINGS) {
+            ConfigManager.config.lastSettingsPage = id
+        }
+        ConfigManager.requestSave()
+        animatePageChange()
+        scroll = 0
+        relayout()
+        notifyShown()
+    }
+
+    private fun notifyShown() {
+        extraPages().filterIsInstance<ConfigPage>().forEach { it.onShown() }
+    }
+
+    private fun rememberedChild(
+        parent: ConfigCategory,
+        children: List<NavigationEntry>
+    ): NavigationEntry? {
+        val config = ConfigManager.config
+        if (config.restoreLastPage) {
+            children.firstOrNull { it.id == config.lastOpenedPage && it.available }?.let { return it }
+        }
+        if (parent != ConfigCategory.SETTINGS && parent.group != NavGroup.SETTINGS) return null
+        val remembered = config.lastSettingsPage
+        return children.firstOrNull { it.id == remembered && it.available }
+    }
 
     private fun isBuiltInVisual(): Boolean =
         selectedPageId in BUILT_IN_VISUALS.map { it.id }
@@ -900,14 +1005,17 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     }
 
     private fun sliderEnabled(id: SliderId): Boolean = when (id) {
-        SliderId.DROPPED_TRANSPARENCY -> expandedDropped
-        SliderId.DROPPED_INTENSITY, SliderId.DROPPED_WIDTH -> false
+        SliderId.DROPPED_TRANSPARENCY, SliderId.DROPPED_WIDTH -> expandedDropped
+        SliderId.DROPPED_INTENSITY -> false
         SliderId.GLINT_TRANSPARENCY, SliderId.GLINT_SPEED -> expandedGlint
         SliderId.HELD_TRANSPARENCY, SliderId.HELD_WIDTH -> expandedHeldGlow
         SliderId.HELD_INTENSITY -> false
-        SliderId.PLAYER_TRANSPARENCY -> expandedPlayerGlow
-        SliderId.PLAYER_INTENSITY, SliderId.PLAYER_WIDTH -> false
+        SliderId.PLAYER_TRANSPARENCY, SliderId.PLAYER_WIDTH -> expandedPlayerGlow
+        SliderId.PLAYER_INTENSITY -> false
     }
+
+    private fun hoveredContentStack(): ItemStack? =
+        extraPages().firstNotNullOfOrNull { it.hoveredStack() } ?: hoveredVisualStack()
 
     private fun hoveredVisualStack() = when (category) {
         ConfigCategory.DROPPED_GLOW -> droppedFilter.hoveredStack
@@ -936,14 +1044,16 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
         val config = ConfigManager.config
         when (id) {
             SliderId.DROPPED_TRANSPARENCY -> config.droppedItemGlow.opacity = value
-            SliderId.DROPPED_INTENSITY, SliderId.DROPPED_WIDTH -> Unit
+            SliderId.DROPPED_WIDTH -> config.droppedItemGlow.thicknessPixels = (1 + value * 3f).roundToInt().coerceIn(1, 4)
+            SliderId.DROPPED_INTENSITY -> Unit
             SliderId.GLINT_TRANSPARENCY -> config.heldGlint.transparency = 1f - value
             SliderId.GLINT_SPEED -> config.heldGlint.speed = value
             SliderId.HELD_TRANSPARENCY -> config.heldItemGlow.opacity = value
             SliderId.HELD_INTENSITY -> Unit
             SliderId.HELD_WIDTH -> config.heldItemGlow.thicknessPixels = (1 + value * 3f).roundToInt().coerceIn(1, 4)
             SliderId.PLAYER_TRANSPARENCY -> config.playerGlow.opacity = value
-            SliderId.PLAYER_INTENSITY, SliderId.PLAYER_WIDTH -> Unit
+            SliderId.PLAYER_WIDTH -> config.playerGlow.thicknessPixels = (1 + value * 3f).roundToInt().coerceIn(1, 4)
+            SliderId.PLAYER_INTENSITY -> Unit
         }
     }
 
@@ -963,6 +1073,7 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     private fun unfocusAll() {
         unfocusPickers()
         unfocusFilters()
+        globalSearch.unfocus()
     }
 
     private fun pointer(click: Click): Pair<Double, Double> = scalePointer(click.x(), click.y())
@@ -1015,7 +1126,20 @@ class HugoScreen(initialPageId: String? = null) : Screen(Text.literal(HugoIds.DI
     }
 
     companion object {
-        private const val HEADER_H = 30
+        fun open(client: MinecraftClient, pageId: String? = null, parent: Screen? = client.currentScreen) {
+            val origin = if (parent is HugoScreen) parent.parent else parent
+            client.setScreen(HugoScreen(pageId, origin))
+        }
+
+        fun toggle(client: MinecraftClient) {
+            when (val current = client.currentScreen) {
+                is HugoScreen -> client.setScreen(current.parent)
+                is TitleScreen, is GameMenuScreen, null -> open(client, parent = current)
+                else -> Unit
+            }
+        }
+
+        private const val HEADER_H = 54
         private val ALL_SLIDERS = SliderId.entries.toSet()
         private val BUILT_IN_VISUALS = setOf(
             ConfigCategory.DROPPED_GLOW,
