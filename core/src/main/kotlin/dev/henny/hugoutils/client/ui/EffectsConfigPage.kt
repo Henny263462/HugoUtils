@@ -106,7 +106,7 @@ class EffectsConfigPage : ConfigPage {
             typeToggle.contains(mouseX, mouseY) -> EffectsConfig.particleOverrides[selectedTypeId()]?.let { it.enabled = !it.enabled }
             resetButton.contains(mouseX, mouseY) -> EffectsConfig.reset()
             else -> {
-                val hit = sliders.entries.firstOrNull { it.value.contains(mouseX, mouseY) }
+                val hit = sliders.entries.firstOrNull { SliderMath.contains(it.value, mouseX, mouseY) }
                 if (hit != null && sliderEnabled(hit.key)) {
                     dragging = hit.key
                     applySlider(hit.key, mouseX)
@@ -160,8 +160,7 @@ class EffectsConfigPage : ConfigPage {
 
     private fun applySlider(id: SliderId, mouseX: Double) {
         val rect = sliders[id] ?: return
-        val track = UiRect(rect.x, rect.y + 12, rect.w, 6)
-        val normalized = ((mouseX - track.x) / track.w.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f)
+        val normalized = SliderMath.normalized(rect, mouseX)
         val override = EffectsConfig.particleOverrides[selectedTypeId()]
         when (id) {
             SliderId.DENSITY -> EffectsConfig.particleDensity = normalized
@@ -194,7 +193,8 @@ class EffectsConfigPage : ConfigPage {
             mouseX,
             mouseY,
             enabled,
-            id
+            id,
+            immediate = dragging == id
         )
     }
 

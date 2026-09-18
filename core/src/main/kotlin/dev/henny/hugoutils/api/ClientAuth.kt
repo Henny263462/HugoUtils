@@ -100,5 +100,6 @@ data class ClientSession(
 class ClientApiException(
     val status: Int,
     val error: String,
-    override val message: String
+    override val message: String,
+    val body: JsonObject? = null
 ) : RuntimeException(message)

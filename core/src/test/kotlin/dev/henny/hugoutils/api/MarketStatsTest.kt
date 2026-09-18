@@ -206,8 +206,8 @@ class MarketStatsTest {
               "opportunities":[{
                 "id":"a1",
                 "item":{"id":"elytra","displayName":"Elytra","minecraftId":"minecraft:elytra"},
-                "buy":{"source":"order","price":1,"average":25.0,"listingCount":8,"volume":1133},
-                "sell":{"source":"auction","price":100,"lowest":80,"average":90,"listingCount":4,"volume":4},
+                "buy":{"source":"auction","price":1,"average":25.0,"listingCount":8,"volume":1133},
+                "sell":{"source":"order","price":100,"lowest":80,"average":90,"listingCount":4,"volume":4},
                 "profit":99,
                 "profitPct":9900
               }]
@@ -217,12 +217,60 @@ class MarketStatsTest {
         val deals = MarketArbitrage.parse(body)
         assertEquals(1, deals.size)
         assertEquals("Elytra", deals.first().name)
-        assertEquals("Order", deals.first().buySource)
-        assertEquals("Auktion", deals.first().sellSource)
+        assertEquals("Auktion", deals.first().buySource)
+        assertEquals("Order", deals.first().sellSource)
         assertEquals(1.0, deals.first().buyPrice)
         assertEquals(100.0, deals.first().sellPrice)
         assertEquals(99.0, deals.first().profit)
         assertEquals(9900.0, deals.first().profitPct)
+    }
+
+    @Test
+    fun `arbitrage rows map auction buy and order sell`() {
+        val body = JsonParser.parseString(
+            """
+            {
+              "rows":[{
+                "id":"elytra-id",
+                "registry_id":"minecraft:elytra",
+                "identity_key":"minecraft:elytra",
+                "display_name":"Elytra",
+                "ah_price":"10",
+                "ah_min":"8",
+                "ah_avg":"11",
+                "order_price":"40",
+                "order_min":"35",
+                "order_avg":"42",
+                "profit":"30",
+                "profit_pct":"300",
+                "ah_count":4,
+                "order_count":8,
+                "ah_volume":4,
+                "order_volume":1133,
+                "last_seen_at":"2026-09-18T12:00:00.000Z"
+              }]
+            }
+            """.trimIndent()
+        ).asJsonObject
+        val deals = MarketArbitrage.parse(body)
+        assertEquals(1, deals.size)
+        val deal = deals.first()
+        assertEquals("Elytra", deal.name)
+        assertEquals("elytra-id", deal.itemId)
+        assertEquals("Auktion", deal.buySource)
+        assertEquals("Order", deal.sellSource)
+        assertEquals(10.0, deal.buyPrice)
+        assertEquals(40.0, deal.sellPrice)
+        assertEquals(8.0, deal.buyLowest)
+        assertEquals(35.0, deal.sellLowest)
+        assertEquals(11.0, deal.buyAverage)
+        assertEquals(42.0, deal.sellAverage)
+        assertEquals(4, deal.buyCount)
+        assertEquals(8, deal.sellCount)
+        assertEquals("4×", deal.buyVolume)
+        assertEquals("1.133×", deal.sellVolume)
+        assertEquals(30.0, deal.profit)
+        assertEquals(300.0, deal.profitPct)
     }
 
     @Test

@@ -30,10 +30,14 @@ object PlayerGlowRenderLayer {
             .build()
     )
 
-    private val layers = HashMap<Identifier, RenderLayer>()
+    private val layers = object : LinkedHashMap<Identifier, RenderLayer>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Identifier, RenderLayer>): Boolean =
+            size > MAX_CACHED_LAYERS
+    }
 
     fun initialize() = Unit
 
+    @Synchronized
     fun forTexture(texture: Identifier): RenderLayer = layers.getOrPut(texture) {
         RenderLayerInvoker.`hugoutils$create`(
             "hugoutils_player_glow_${texture.namespace}_${texture.path.replace('/', '_')}",
@@ -43,4 +47,6 @@ object PlayerGlowRenderLayer {
                 .build()
         )
     }
+
+    private const val MAX_CACHED_LAYERS = 64
 }

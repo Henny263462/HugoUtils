@@ -46,8 +46,8 @@ class BlockPickerPanel(
 
     fun layout(x: Int, y: Int, w: Int, h: Int): Int {
         val searchH = 20
-        val selectedH = 40
-        val height = h.coerceAtLeast(searchH + selectedH + 90)
+        val selectedH = 40.coerceAtMost((h - searchH - 70).coerceAtLeast(28))
+        val height = h.coerceAtLeast(searchH + 36)
         card = UiRect(x, y, w, height)
         searchBox = UiRect(x, y, w - 82, searchH)
         lookButton = UiRect(searchBox.right + 6, y, 76, searchH)
@@ -106,10 +106,11 @@ class BlockPickerPanel(
             return true
         }
         searchFocused = false
-        return true
+        return false
     }
 
     fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean {
+        if (maxGridScroll <= 0) return false
         if (!gridArea.contains(mouseX, mouseY) && !selectedArea.contains(mouseX, mouseY)) return false
         gridScroll = (gridScroll - (amount * 18).roundToInt()).coerceIn(0, maxGridScroll)
         return true

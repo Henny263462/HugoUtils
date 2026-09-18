@@ -183,6 +183,30 @@ class ClientApiLogicTest {
     }
 
     @Test
+    fun `enabled keys read live api feature maps and key records`() {
+        val me = JsonParser.parseString(
+            """{"playerName":"Steve","features":{"debug.inv":"true","market.afk-bot":"true","hud.minimap":"off"}}"""
+        ).asJsonObject
+        val features = JsonParser.parseString(
+            """{"features":{"debug.inv":"true","market.afk-bot":""},"keys":[{"key":"debug.inv","value":"true","createdAt":"2026-09-18T00:00:00Z","updatedAt":"2026-09-18T00:00:00Z","createdBy":"admin"}]}"""
+        ).asJsonObject
+        assertTrue(JsonView.keyEnabled(me, "debug.inv"))
+        assertTrue(JsonView.keyEnabled(me, "market.afk-bot"))
+        assertFalse(JsonView.keyEnabled(me, "hud.minimap"))
+        assertTrue(JsonView.keyEnabled(features, "debug.inv"))
+        assertTrue(JsonView.keyEnabled(features, "market.afk-bot"))
+        assertFalse(JsonView.enabledKeys(features).contains("key"))
+        assertFalse(JsonView.enabledKeys(features).contains("value"))
+        assertFalse(JsonView.enabledKeys(features).contains("createdAt"))
+        ClientFlags.clear()
+        ClientFlags.ingest(features, me)
+        assertTrue(ClientFlags.has("debug.inv"))
+        assertTrue(ClientFlags.has("market.afk-bot"))
+        assertFalse(ClientFlags.has("hud.minimap"))
+        ClientFlags.clear()
+    }
+
+    @Test
     fun `staff badges and permissions are readable`() {
         val json = JsonParser.parseString(
             """{"staff":true,"superAdmin":true,"admin":true,"permissions":["admin.accounts.read","admin.bot.control"]}"""

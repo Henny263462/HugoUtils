@@ -2,6 +2,7 @@ package dev.henny.hugoutils.client.config
 
 import net.minecraft.util.math.ColorHelper
 import net.minecraft.util.math.MathHelper
+import kotlin.math.roundToInt
 
 class GlowStyle : HsvColor {
     var enabled: Boolean = true
@@ -30,12 +31,12 @@ class GlowStyle : HsvColor {
         }
     }
 
-    fun clamp() {
+    fun clamp(maxThickness: Int = MAX_THICKNESS) {
         hue = wrapHue(hue)
         saturation = saturation.coerceIn(0f, 1f)
         brightness = brightness.coerceIn(0f, 1f)
         opacity = opacity.coerceIn(0f, 1f)
-        thicknessPixels = thicknessPixels.coerceIn(1, 4)
+        thicknessPixels = thicknessPixels.coerceIn(1, maxThickness)
         filter.clamp()
         playerFilter.clamp()
     }
@@ -81,6 +82,15 @@ class GlowStyle : HsvColor {
     }
 
     companion object {
+        const val MAX_THICKNESS = 4
+        const val MAX_HELD_THICKNESS = 16
+
+        fun thicknessFromSlider(value: Float, max: Int = MAX_THICKNESS): Int =
+            (1 + value.coerceIn(0f, 1f) * (max - 1)).roundToInt().coerceIn(1, max)
+
+        fun thicknessSlider(pixels: Int, max: Int = MAX_THICKNESS): Float =
+            ((pixels - 1) / (max - 1).toFloat()).coerceIn(0f, 1f)
+
         fun droppedDefault() = GlowStyle().apply {
             enabled = true
             hue = 0.52f

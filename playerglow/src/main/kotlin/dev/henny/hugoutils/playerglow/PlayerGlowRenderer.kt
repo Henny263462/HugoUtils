@@ -15,24 +15,22 @@ import net.minecraft.component.DataComponentTypes
 import net.minecraft.component.type.DyedColorComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.util.Identifier
-import java.util.IdentityHashMap
 import java.util.UUID
 
 object PlayerGlowRenderer {
-    private val activeGlowColors = IdentityHashMap<PlayerEntityRenderState, Int>()
-
     fun initialize() = Unit
 
     @JvmStatic
     fun applyOutline(state: PlayerEntityRenderState, name: String, uuid: UUID) {
+        val holder = state as? PlayerGlowColorHolder
         val style = ConfigManager.config.playerGlow
         if (style.enabled && !state.spectator && !state.invisible && !state.invisibleToPlayer &&
             style.playerFilter.allows(name, uuid)
         ) {
             state.outlineColor = style.playerFilter.outlineArgb(name, uuid, style)
-            activeGlowColors[state] = style.playerFilter.glowArgb(name, uuid, style)
+            holder?.`hugoutils$setGlowColor`(style.playerFilter.glowArgb(name, uuid, style))
         } else {
-            activeGlowColors.remove(state)
+            holder?.`hugoutils$setGlowColor`(0)
         }
     }
 
@@ -48,7 +46,8 @@ object PlayerGlowRenderer {
     ) {
         if (state !is PlayerEntityRenderState || state.spectator) return
         if (state.invisible || state.invisibleToPlayer) return
-        val color = activeGlowColors[state] ?: return
+        val color = (state as? PlayerGlowColorHolder)?.`hugoutils$getGlowColor`() ?: 0
+        if (color == 0) return
 
         val equippable = stack.get(DataComponentTypes.EQUIPPABLE) ?: return
         val assetKey = equippable.assetId().orElse(null) ?: return

@@ -176,10 +176,17 @@ object SkyManager : ConfigSection {
                 val texture = NativeImageBackedTexture({ "HugoUtils End-Sky" }, image)
                 replacements[textureId(endPath)] = texture
             }
+            val previous = LinkedHashMap(activeTextures)
             activeTextures.clear()
             replacements.forEach { (id, texture) ->
                 client.textureManager.registerTexture(id, texture)
                 activeTextures[id] = texture
+            }
+            previous.forEach { (id, texture) ->
+                if (id !in replacements) {
+                    runCatching { client.textureManager.destroyTexture(id) }
+                    runCatching { texture.close() }
+                }
             }
             CelestialAtlasPatcher.apply(images)
             SkyTextureOverrides.setClouds(images[SkyTexture.CLOUDS.resourcePath])

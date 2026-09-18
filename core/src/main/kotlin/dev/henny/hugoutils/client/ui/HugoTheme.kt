@@ -26,6 +26,7 @@ object HugoTheme {
     val comingSoon get() = value.comingSoon
     val helper get() = value.helper
     val glintPurple get() = value.glintPurple
+    val chart get() = value.chart
     fun withAlpha(color: Int, alpha: Int) = value.withAlpha(color, alpha)
     fun lerpColor(from: Int, to: Int, delta: Float) =
         dev.henny.hugoutils.ui.Theme.lerpColor(from, to, delta)

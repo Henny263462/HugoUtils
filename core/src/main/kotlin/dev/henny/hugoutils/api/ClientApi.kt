@@ -12,6 +12,9 @@ import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
 object ClientApi {
+    @Volatile
+    var outlierProtectionEnabled: () -> Boolean = { true }
+
     private val http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(8))
         .followRedirects(HttpClient.Redirect.NORMAL)
@@ -151,22 +154,45 @@ object ClientApi {
         return post("/mod/client/v1/afk/live/command", body)
     }
 
+    fun rtp(force: Boolean = false) = cached("rtp", force) { get("/mod/client/v1/rtp") }
+    fun setRtpShare(share: Boolean, confirm: Boolean = false): JsonObject {
+        val body = JsonObject().apply {
+            addProperty("share", share)
+            if (confirm) addProperty("confirm", true)
+        }
+        val result = post("/mod/client/v1/rtp", body)
+        invalidate("rtp")
+        invalidate("me")
+        return result
+    }
+    fun recordRtpPoint(dimension: String, biome: String, x: Int, y: Int, z: Int): JsonObject {
+        val body = JsonObject().apply {
+            addProperty("dimension", dimension)
+            addProperty("biome", biome)
+            addProperty("x", x)
+            addProperty("y", y)
+            addProperty("z", z)
+        }
+        return post("/mod/client/v1/rtp/points", body)
+    }
+
     fun invalidate(prefix: String = "") {
         if (prefix.isEmpty()) cache.clear()
         else cache.keys.removeIf { it.startsWith(prefix) }
     }
 
     fun get(path: String, query: Map<String, String> = emptyMap(), auth: Boolean = true): JsonObject =
-        parse(send("GET", path, query, null, auth).body())
+        parse(send("GET", path, withOutliers(query), null, auth).body())
 
     fun post(path: String, body: JsonObject, auth: Boolean = true): JsonObject =
         parse(send("POST", path, emptyMap(), body, auth).body())
 
     private fun cached(key: String, force: Boolean, ttlMs: Long = 8_000L, loader: () -> JsonObject): JsonObject {
-        if (!force) cache[key]?.takeIf { it.fresh(ttlMs) }?.let { return it.body }
+        val tagged = "$key:${outlierTag()}"
+        if (!force) cache[tagged]?.takeIf { it.fresh(ttlMs) }?.let { return it.body }
         val body = loader()
         val now = System.currentTimeMillis()
-        cache[key] = Cached(body, now)
+        cache[tagged] = Cached(body, now)
         cache.entries.removeIf { now - it.value.at > CACHE_MAX_AGE_MS }
         if (cache.size > CACHE_MAX_ENTRIES) {
             cache.entries
@@ -239,8 +265,20 @@ object ClientApi {
         val error = JsonView.str(json, "error") ?: "http_$status"
         val message = JsonView.str(json, "message")
             ?: ClientAuth.userMessage(error, "Anfrage fehlgeschlagen (HTTP $status).")
-        return ClientApiException(status, error, message)
+        return ClientApiException(status, error, message, json)
     }
+
+    private fun withOutliers(query: Map<String, String>): Map<String, String> {
+        if (query.containsKey("outliers")) return query
+        if (runCatching { outlierProtectionEnabled() }.getOrDefault(true)) return query
+        return buildMap {
+            putAll(query)
+            put("outliers", "0")
+        }
+    }
+
+    private fun outlierTag(): String =
+        if (runCatching { outlierProtectionEnabled() }.getOrDefault(true)) "out" else "raw"
 
     private fun idBody(accountId: String?): JsonObject = JsonObject().apply {
         if (!accountId.isNullOrBlank()) {

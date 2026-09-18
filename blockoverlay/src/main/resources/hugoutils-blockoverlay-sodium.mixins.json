@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "plugin": "dev.henny.hugoutils.blockoverlay.mixin.SodiumMixinPlugin",
+  "package": "dev.henny.hugoutils.blockoverlay.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [],
+  "client": [
+    "SodiumBlockRendererOverlayMixin",
+    "SodiumFluidRendererOverlayMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

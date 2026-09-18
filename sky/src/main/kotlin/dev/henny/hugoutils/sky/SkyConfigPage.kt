@@ -120,7 +120,9 @@ class SkyConfigPage : ConfigPage {
         val cols = if (grid.w >= 420) 3 else 2
         val visible = ((grid.h + GAP) / (CARD_H + GAP)).coerceAtLeast(1)
         val totalRows = ((SkyManager.skies.size + cols - 1) / cols).coerceAtLeast(0)
-        scroll = (scroll - amount.toInt()).coerceIn(0, (totalRows - visible).coerceAtLeast(0))
+        val max = (totalRows - visible).coerceAtLeast(0)
+        if (max <= 0) return false
+        scroll = (scroll - amount.toInt()).coerceIn(0, max)
         return true
     }
 

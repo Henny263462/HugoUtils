@@ -48,8 +48,8 @@ class HighlightBlockPicker(
 
     fun layout(x: Int, y: Int, w: Int, h: Int): Int {
         val searchH = 20
-        val listH = 88
-        val height = h.coerceAtLeast(searchH + listH + 90)
+        val listH = 88.coerceAtMost((h - searchH - 70).coerceAtLeast(36))
+        val height = h.coerceAtLeast(searchH + 40)
         card = UiRect(x, y, w, height)
         searchBox = UiRect(x, y, w - 82, searchH)
         lookButton = UiRect(searchBox.right + 6, y, 76, searchH)
@@ -106,16 +106,16 @@ class HighlightBlockPicker(
             return true
         }
         searchFocused = false
-        return true
+        return false
     }
 
     fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean {
         when {
-            listArea.contains(mouseX, mouseY) -> {
+            listArea.contains(mouseX, mouseY) && maxListScroll > 0 -> {
                 listScroll = (listScroll - (amount * 18).roundToInt()).coerceIn(0, maxListScroll)
                 return true
             }
-            gridArea.contains(mouseX, mouseY) -> {
+            gridArea.contains(mouseX, mouseY) && maxGridScroll > 0 -> {
                 gridScroll = (gridScroll - (amount * 18).roundToInt()).coerceIn(0, maxGridScroll)
                 return true
             }

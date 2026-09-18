@@ -1,5 +1,7 @@
 package dev.henny.hugoutils.client.config
 
+import dev.henny.hugoutils.ui.UiMetrics
+
 class ModConfig {
     var droppedItemGlow: GlowStyle = GlowStyle.droppedDefault()
     var heldItemGlow: GlowStyle = GlowStyle.heldDefault()
@@ -14,6 +16,8 @@ class ModConfig {
     var lastSettingsPage: String = "general"
     var lastOpenedPage: String = "market_home"
     var restoreLastPage: Boolean = false
+    var outlierProtection: Boolean = true
+    var rtpShareEnabled: Boolean? = null
     var uiCornerRadius: Int = 0
     var marketListView: Boolean = false
     var pinnedMarketItems: MutableList<String> = ArrayList()
@@ -21,11 +25,11 @@ class ModConfig {
 
     fun clamp() {
         droppedItemGlow.clamp()
-        heldItemGlow.clamp()
+        heldItemGlow.clamp(GlowStyle.MAX_HELD_THICKNESS)
         playerGlow.clamp()
         heldGlint.clamp()
         perspectiveMode = PerspectiveMode.fromId(perspectiveMode).id
-        uiCornerRadius = uiCornerRadius.coerceIn(0, 12)
+        uiCornerRadius = uiCornerRadius.coerceIn(0, UiMetrics.CORNER_MAX)
     }
 }
 

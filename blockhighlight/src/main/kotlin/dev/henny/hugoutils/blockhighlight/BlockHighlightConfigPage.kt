@@ -6,6 +6,7 @@ import dev.henny.hugoutils.client.ui.ConfigPage
 import dev.henny.hugoutils.client.ui.HugoTheme
 import dev.henny.hugoutils.ui.ButtonStyle
 import dev.henny.hugoutils.ui.ColorPicker
+import dev.henny.hugoutils.ui.SliderMath
 import dev.henny.hugoutils.ui.UiDraw
 import dev.henny.hugoutils.ui.UiRect
 import dev.henny.hugoutils.ui.UiWidgets
@@ -33,7 +34,7 @@ class BlockHighlightConfigPage : ConfigPage {
     private var mouseY = 0.0
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        val h = height.coerceAtLeast(320)
+        val h = height.coerceAtLeast(360)
         frame = UiRect(x, y, width, h)
         toggle = UiRect(frame.right - 42, y + 10, 32, 14)
         picker.layout(x + 10, y, 100, 72)
@@ -77,7 +78,7 @@ class BlockHighlightConfigPage : ConfigPage {
             picker.render(context, style)
             UiWidgets.labeledSlider(
                 context, font, opacity, "Deckkraft", "${(style.opacity * 100).roundToInt()}%",
-                style.opacity, this.mouseX, this.mouseY, key = "highlight-opacity"
+                style.opacity, this.mouseX, this.mouseY, key = "highlight-opacity", immediate = draggingOpacity
             )
             UiWidgets.button(context, font, removeButton, "Entfernen", this.mouseX, this.mouseY, style = ButtonStyle.DANGER, key = "highlight-remove")
         } ?: context.drawText(font, "Block im Raster wählen", editor.x + 12, editor.y + 16, HugoTheme.textDim, false)
@@ -90,18 +91,12 @@ class BlockHighlightConfigPage : ConfigPage {
             save()
             return true
         }
-        if (blocks.mouseClicked(mouseX, mouseY)) {
-            picker.unfocus()
-            blocks.clickedId?.let { selected = it }
-            status = "Highlight gilt nur unter dem Fadenkreuz"
-            return true
-        }
         val style = currentStyle()
         if (style != null && picker.mouseClicked(style, mouseX, mouseY)) {
             blocks.unfocus()
             return true
         }
-        if (style != null && opacity.contains(mouseX, mouseY)) {
+        if (style != null && SliderMath.contains(opacity, mouseX, mouseY)) {
             draggingOpacity = true
             applyOpacity(mouseX)
             return true
@@ -110,6 +105,12 @@ class BlockHighlightConfigPage : ConfigPage {
             BlockHighlightConfig.remove(selected)
             selected = BlockHighlightConfig.keys().firstOrNull()
             save()
+            return true
+        }
+        if (blocks.mouseClicked(mouseX, mouseY)) {
+            picker.unfocus()
+            blocks.clickedId?.let { selected = it }
+            status = "Highlight gilt nur unter dem Fadenkreuz"
             return true
         }
         return frame.contains(mouseX, mouseY)
@@ -155,7 +156,7 @@ class BlockHighlightConfigPage : ConfigPage {
     private fun currentStyle(): BlockHighlightStyle? = selected?.let(BlockHighlightConfig.entries::get)
 
     private fun applyOpacity(x: Double) {
-        currentStyle()?.opacity = ((x - opacity.x) / opacity.w.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f)
+        currentStyle()?.opacity = SliderMath.normalized(opacity, x)
         save()
     }
 

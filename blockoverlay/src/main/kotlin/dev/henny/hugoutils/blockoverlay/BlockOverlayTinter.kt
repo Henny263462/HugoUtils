@@ -6,6 +6,8 @@ import net.minecraft.client.render.VertexConsumer
 import net.minecraft.client.render.model.BakedQuad
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.math.ColorHelper
+import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
 
 object BlockOverlayTinter {
     @JvmStatic
@@ -38,6 +40,64 @@ object BlockOverlayTinter {
             )
         }
     }
+
+    @JvmStatic
+    fun tintSodiumQuad(quad: Any?, state: BlockState) {
+        if (quad == null) return
+        val style = BlockOverlayConfig.styleFor(state) ?: return
+        if (style.opacity <= 0.001f) return
+        val getter = colorGetter(quad.javaClass) ?: return
+        val setter = colorSetter(quad.javaClass) ?: return
+        val tint = style.argb()
+        for (vertex in 0 until 4) {
+            val current = getter.invoke(quad, vertex) as Int
+            setter.invoke(quad, vertex, OverlayTintConsumer.mixPacked(current, tint))
+        }
+    }
+
+    @JvmStatic
+    fun tintAbgrColors(colors: IntArray, state: BlockState) {
+        val style = BlockOverlayConfig.styleFor(state) ?: return
+        if (style.opacity <= 0.001f) return
+        val tint = style.argb()
+        for (index in colors.indices) {
+            colors[index] = OverlayTintConsumer.mixAbgr(colors[index], tint)
+        }
+    }
+
+    private fun colorGetter(type: Class<*>): Method? {
+        getters[type]?.let { return it }
+        val found = findMethod(type, listOf("baseColor", "getColor"), INTEGER) ?: return null
+        getters.putIfAbsent(type, found)
+        return found
+    }
+
+    private fun colorSetter(type: Class<*>): Method? {
+        setters[type]?.let { return it }
+        val found = findMethod(type, listOf("setColor"), INTEGER, INTEGER) ?: return null
+        setters.putIfAbsent(type, found)
+        return found
+    }
+
+    private fun findMethod(type: Class<*>, names: List<String>, vararg args: Class<*>): Method? {
+        var current: Class<*>? = type
+        while (current != null && current != Any::class.java) {
+            for (name in names) {
+                val method = runCatching { current.getMethod(name, *args) }.getOrNull()
+                    ?: runCatching { current.getDeclaredMethod(name, *args) }.getOrNull()
+                if (method != null) {
+                    method.isAccessible = true
+                    return method
+                }
+            }
+            current = current.superclass
+        }
+        return null
+    }
+
+    private val getters = ConcurrentHashMap<Class<*>, Method>()
+    private val setters = ConcurrentHashMap<Class<*>, Method>()
+    private val INTEGER = Integer.TYPE
 }
 
 internal class OverlayTintConsumer(
@@ -169,5 +229,20 @@ internal class OverlayTintConsumer(
             val multiplied = source + (tint - source) * amount
             return multiplied.toInt().coerceIn(0, 255)
         }
+
+        fun mixPacked(color: Int, tint: Int): Int {
+            val amount = ColorHelper.getAlpha(tint) / 255f
+            return ColorHelper.getArgb(
+                ColorHelper.getAlpha(color),
+                mixChannel(ColorHelper.getRed(color), ColorHelper.getRed(tint), amount),
+                mixChannel(ColorHelper.getGreen(color), ColorHelper.getGreen(tint), amount),
+                mixChannel(ColorHelper.getBlue(color), ColorHelper.getBlue(tint), amount)
+            )
+        }
+
+        fun mixAbgr(color: Int, tint: Int): Int = swapRb(mixPacked(swapRb(color), tint))
+
+        private fun swapRb(color: Int): Int =
+            (color and 0xFF00FF00.toInt()) or ((color ushr 16) and 0xFF) or ((color and 0xFF) shl 16)
     }
 }

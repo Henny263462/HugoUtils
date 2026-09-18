@@ -73,4 +73,11 @@ class AnimationTest {
         assertEquals(20f, UiDraw.valueAt(values, 1f), .0001f)
         assertEquals(5f, UiDraw.valueAt(values, 0.25f), .0001f)
     }
+
+    @Test
+    fun `skeleton pulse stays between dim and bright`() {
+        val pulse = UiDraw.loadingPulse(0L)
+        assertTrue(pulse in 0.4f..0.85f)
+        assertTrue(UiDraw.loadingPulse(140L) in 0.4f..0.85f)
+    }
 }

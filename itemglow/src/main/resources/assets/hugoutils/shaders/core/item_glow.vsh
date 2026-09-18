@@ -25,7 +25,7 @@ void main() {
     gl_Position.xy += vec2(
         OUTLINE_X * horizontalScale,
         OUTLINE_Y
-    ) * 0.0005 * gl_Position.w;
+    ) * 0.0007 * gl_Position.w;
     sphericalVertexDistance = fog_spherical_distance(Position);
     cylindricalVertexDistance = fog_cylindrical_distance(Position);
     texCoord0 = UV0;

@@ -49,20 +49,7 @@ object UiWidgets {
         state.hover.animateTo(if (hovered) 1f else 0f)
         state.value.update(UiFrame.deltaSeconds)
         state.hover.update(UiFrame.deltaSeconds)
-
-        val theme = UiDraw.theme
-        val track = Theme.lerpColor(theme.trackOff, theme.success, state.value.value)
-        UiDraw.panel(
-            context,
-            rect,
-            Theme.lerpColor(track, theme.surfaceRaised, state.hover.value * .18f),
-            Theme.lerpColor(theme.border, theme.accent, state.hover.value)
-        )
-        val knobWidth = 12
-        val knobX = rect.x + 2 + ((rect.w - knobWidth - 4) * state.value.value).roundToInt()
-        val knob = UiRect(knobX, rect.y + 2, knobWidth, rect.h - 4)
-        UiDraw.shadow(context, knob, .3f)
-        UiDraw.fill(context, knob, if (interactive) theme.knob else theme.textDim)
+        drawToggle(context, rect, state.value.value, state.hover.value, interactive)
     }
 
     fun toggleProgress(
@@ -79,12 +66,24 @@ object UiWidgets {
         val hovered = interactive && rect.contains(mouseX, mouseY)
         state.hover.animateTo(if (hovered) 1f else 0f)
         state.hover.update(UiFrame.deltaSeconds)
+        drawToggle(context, rect, state.value.value, state.hover.value, interactive)
+    }
+
+    private fun drawToggle(context: DrawContext, rect: UiRect, progress: Float, hover: Float, interactive: Boolean) {
         val theme = UiDraw.theme
-        val track = Theme.lerpColor(theme.trackOff, theme.success, state.value.value)
-        UiDraw.panel(context, rect, track, Theme.lerpColor(theme.border, theme.accent, state.hover.value))
-        val knobWidth = 12
-        val knobX = rect.x + 2 + ((rect.w - knobWidth - 4) * state.value.value).roundToInt()
-        UiDraw.fill(context, UiRect(knobX, rect.y + 2, knobWidth, rect.h - 4), if (interactive) theme.knob else theme.textDim)
+        val track = Theme.lerpColor(theme.trackOff, theme.success, progress)
+        UiDraw.panel(
+            context,
+            rect,
+            Theme.lerpColor(track, theme.surfaceRaised, hover * .18f),
+            Theme.lerpColor(theme.border, theme.accent, hover),
+            UiMetrics.radiusFor(rect.h)
+        )
+        val knobSize = (rect.h - 6).coerceAtLeast(8)
+        val knobX = rect.x + 3 + ((rect.w - knobSize - 6) * progress).roundToInt()
+        val knob = UiRect(knobX, rect.y + (rect.h - knobSize) / 2, knobSize, knobSize)
+        UiDraw.shadow(context, knob, .3f)
+        Rounded.fill(context, knob, if (interactive) theme.knob else theme.textDim, UiMetrics.radiusSmFor(knobSize))
     }
 
     fun button(
@@ -139,30 +138,40 @@ object UiWidgets {
         normalized: Float,
         hovered: Boolean,
         enabled: Boolean = true,
-        key: Any = rect
+        key: Any = rect,
+        immediate: Boolean = false
     ) {
         val target = normalized.coerceIn(0f, 1f)
         val state = state(sliderStates, key, target)
-        state.value.animateTo(target)
+        state.value.snapTo(target)
         state.hover.animateTo(if (hovered && enabled) 1f else 0f)
-        state.value.update(UiFrame.deltaSeconds)
         state.hover.update(UiFrame.deltaSeconds)
         val theme = UiDraw.theme
-        UiDraw.panel(context, rect, theme.inset, Theme.lerpColor(theme.border, theme.accent, state.hover.value), UiMetrics.CORNER_SM)
+        val radius = UiMetrics.radiusSmFor(rect.h)
+        UiDraw.panel(context, rect, theme.inset, Theme.lerpColor(theme.border, theme.accent, state.hover.value), radius)
         val fill = (rect.w * state.value.value).roundToInt().coerceIn(0, rect.w)
         if (fill > 2) {
-            UiDraw.roundedFill(
+            Rounded.fill(
                 context,
                 rect.x + 1,
                 rect.y + 1,
                 fill - 2,
                 rect.h - 2,
                 if (enabled) theme.accent else theme.textDim,
-                UiMetrics.CORNER_SM
+                radius
             )
         }
-        val knobX = (rect.x + fill).coerceIn(rect.x + 2, rect.right - 2)
-        UiDraw.roundedFill(context, knobX - 3, rect.y - 1, 6, rect.h + 2, if (enabled) theme.knob else theme.textDim, UiMetrics.CORNER_SM)
+        val knob = 8
+        val knobX = (rect.x + fill).coerceIn(rect.x, rect.right)
+        Rounded.fill(
+            context,
+            knobX - knob / 2,
+            rect.y + rect.h / 2 - knob / 2,
+            knob,
+            knob,
+            if (enabled) theme.knob else theme.textDim,
+            UiMetrics.radiusSmFor(knob)
+        )
     }
 
     fun card(context: DrawContext, rect: UiRect) {
@@ -202,10 +211,8 @@ object UiWidgets {
         title: String,
         subtitle: String? = null
     ) {
-        context.drawText(renderer, title, x, y, UiDraw.theme.text, false)
-        if (!subtitle.isNullOrBlank()) {
-            context.drawText(renderer, subtitle, x, y + 14, UiDraw.theme.textMuted, false)
-        }
+        Labels.title(context, renderer, x, y, title)
+        if (!subtitle.isNullOrBlank()) Labels.muted(context, renderer, x, y + 14, subtitle)
     }
 
     fun labeledToggle(
@@ -219,7 +226,7 @@ object UiWidgets {
         interactive: Boolean = true,
         key: Any = toggle
     ) {
-        context.drawText(renderer, label, toggle.x - renderer.getWidth(label) - 10, toggle.y + 3, UiDraw.theme.text, false)
+        Labels.title(context, renderer, toggle.x - renderer.getWidth(label) - 10, toggle.y + 3, label)
         toggle(context, toggle, enabled, mouseX, mouseY, interactive, key)
     }
 
@@ -233,19 +240,13 @@ object UiWidgets {
         mouseX: Double,
         mouseY: Double,
         enabled: Boolean = true,
-        key: Any = rect
+        key: Any = rect,
+        immediate: Boolean = false
     ) {
-        val hovered = enabled && rect.contains(mouseX, mouseY)
-        context.drawText(renderer, label, rect.x, rect.y, if (hovered) UiDraw.theme.text else UiDraw.theme.textMuted, false)
-        context.drawText(
-            renderer,
-            valueText,
-            rect.right - renderer.getWidth(valueText),
-            rect.y,
-            UiDraw.theme.text,
-            false
-        )
-        sliderTrack(context, UiRect(rect.x, rect.y + 12, rect.w, 6), normalized, hovered, enabled, key)
+        val hovered = enabled && SliderMath.contains(rect, mouseX, mouseY)
+        Labels.title(context, renderer, rect.x, rect.y, label, if (hovered) UiDraw.theme.text else UiDraw.theme.textMuted)
+        Labels.trailing(context, renderer, rect, valueText, rect.y, UiDraw.theme.text, 0)
+        sliderTrack(context, SliderMath.labeledTrack(rect), normalized, hovered, enabled, key, immediate)
     }
 
     fun choice(
@@ -267,10 +268,10 @@ object UiWidgets {
         )
         val marker = if (selected) "●" else "○"
         context.drawText(renderer, marker, rect.x + 7, rect.y + (rect.h - 8) / 2, if (selected) UiDraw.theme.accent else UiDraw.theme.textDim, false)
-        context.drawText(renderer, title, rect.x + 22, rect.y + (rect.h - 8) / 2, UiDraw.theme.text, false)
+        Labels.title(context, renderer, rect.x + 22, rect.y + (rect.h - 8) / 2, title)
         if (!detail.isNullOrBlank()) {
             val shown = UiDraw.ellipsize(renderer, detail, (rect.w / 2).coerceAtLeast(40))
-            context.drawText(renderer, shown, rect.right - renderer.getWidth(shown) - 7, rect.y + (rect.h - 8) / 2, UiDraw.theme.textMuted, false)
+            Labels.muted(context, renderer, rect.right - renderer.getWidth(shown) - 7, rect.y + (rect.h - 8) / 2, shown)
         }
     }
 
@@ -293,23 +294,9 @@ object UiWidgets {
         )
         val shownDetail = detail?.takeIf { it.isNotBlank() }?.let { UiDraw.ellipsize(renderer, it, (rect.w / 3).coerceAtLeast(36)) }
         val detailWidth = shownDetail?.let { renderer.getWidth(it) + 10 } ?: 0
-        context.drawText(
-            renderer,
-            UiDraw.ellipsize(renderer, label, rect.w - 12 - detailWidth),
-            rect.x + 6,
-            rect.y + (rect.h - 8) / 2,
-            UiDraw.theme.text,
-            false
-        )
+        Labels.title(context, renderer, rect.x + 6, rect.y + (rect.h - 8) / 2, UiDraw.ellipsize(renderer, label, rect.w - 12 - detailWidth))
         if (shownDetail != null) {
-            context.drawText(
-                renderer,
-                shownDetail,
-                rect.right - renderer.getWidth(shownDetail) - 7,
-                rect.y + (rect.h - 8) / 2,
-                UiDraw.theme.accent,
-                false
-            )
+            Labels.value(context, renderer, rect.right - renderer.getWidth(shownDetail) - 7, rect.y + (rect.h - 8) / 2, shownDetail)
         }
     }
 

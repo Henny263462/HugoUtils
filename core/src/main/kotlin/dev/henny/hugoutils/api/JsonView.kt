@@ -148,19 +148,37 @@ object JsonView {
 
     fun keyNames(element: JsonElement?, limit: Int = 24): List<String> {
         val root = asObject(element)
-        val source = lookup(root, "keys") ?: lookup(root, "clientKeys") ?: lookup(root, "client_keys") ?: return emptyList()
+        val source = lookup(root, "keys") ?: lookup(root, "clientKeys") ?: lookup(root, "client_keys")
+            ?: lookup(root, "features") ?: return emptyList()
         return when (source) {
-            is JsonObject -> source.entrySet().map { it.key }.filter { !looksSecret(it) }.take(limit)
-            else -> enabledNames(source, limit).filter { !looksSecret(it) }
+            is JsonObject -> {
+                val named = namedFeatureKey(source)
+                if (named != null) listOf(named).take(limit)
+                else source.entrySet().map { it.key }.filter { !looksSecret(it) }.take(limit)
+            }
+            else -> {
+                val out = LinkedHashSet<String>()
+                collectKeyPaths(source, "", out, limit)
+                out.filter { !looksSecret(it) }.take(limit)
+            }
         }
     }
 
     fun enabledKeys(element: JsonElement?, limit: Int = 64): Set<String> {
         if (element == null) return emptySet()
         val root = asObject(element)
-        val source = lookup(root, "keys") ?: lookup(root, "clientKeys") ?: lookup(root, "client_keys") ?: return emptySet()
+        val sources = listOfNotNull(
+            lookup(root, "features"),
+            lookup(root, "keys"),
+            lookup(root, "clientKeys"),
+            lookup(root, "client_keys"),
+        )
+        if (sources.isEmpty()) return emptySet()
         val out = LinkedHashSet<String>()
-        collectKeyPaths(source, "", out, limit)
+        for (source in sources) {
+            collectKeyPaths(source, "", out, limit)
+            if (out.size >= limit) break
+        }
         return out
     }
 
@@ -231,23 +249,44 @@ object JsonView {
                     if (text.isNotEmpty() && !looksSecret(text) && primitiveEnabled(element)) out += text
                 }
             }
-            is JsonObject -> element.entrySet().forEach { (key, value) ->
-                if (out.size >= limit || looksSecret(key)) return@forEach
-                val path = if (prefix.isEmpty()) key else "$prefix.$key"
-                when (value) {
-                    is JsonPrimitive -> if (primitiveEnabled(value)) out += path
-                    else -> collectKeyPaths(value, path, out, limit)
+            is JsonObject -> {
+                val named = namedFeatureKey(element)
+                if (named != null) {
+                    if (namedFeatureEnabled(element)) {
+                        out += if (prefix.isEmpty()) named else "$prefix.$named"
+                    }
+                    return
+                }
+                element.entrySet().forEach { (key, value) ->
+                    if (out.size >= limit || looksSecret(key)) return@forEach
+                    val path = if (prefix.isEmpty()) key else "$prefix.$key"
+                    when (value) {
+                        is JsonPrimitive -> if (primitiveEnabled(value)) out += path
+                        else -> collectKeyPaths(value, path, out, limit)
+                    }
                 }
             }
         }
     }
 
+    private fun namedFeatureKey(obj: JsonObject): String? {
+        val named = str(obj, "key") ?: return null
+        return named.takeIf { !looksSecret(it) }
+    }
+
+    private fun namedFeatureEnabled(obj: JsonObject): Boolean {
+        if (bool(obj, "enabled", "active") == false) return false
+        val value = obj.get("value") ?: obj.get("enabled") ?: obj.get("active")
+        return value !is JsonPrimitive || primitiveEnabled(value)
+    }
+
     private fun primitiveEnabled(value: JsonPrimitive): Boolean = when {
         value.isBoolean -> value.asBoolean
         value.isNumber -> value.asInt != 0
-        else -> {
-            val text = value.asString.trim()
-            text.isNotEmpty() && !text.equals("false", true) && text != "0"
+        else -> when (value.asString.trim().lowercase()) {
+            "", "true", "yes", "on", "1" -> true
+            "false", "no", "off", "0" -> false
+            else -> true
         }
     }
 

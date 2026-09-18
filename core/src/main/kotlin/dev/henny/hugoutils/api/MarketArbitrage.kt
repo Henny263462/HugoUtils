@@ -34,54 +34,58 @@ object MarketArbitrage {
 
     fun from(obj: JsonObject): ArbitrageDeal {
         val item = JsonView.child(obj, "item", "product", "stack")
-        val buy = JsonView.child(obj, "buy", "from", "order", "purchase") ?: obj
-        val sell = JsonView.child(obj, "sell", "to", "auction", "sale") ?: obj
+        val buy = JsonView.child(obj, "buy", "from", "auction", "purchase", "ah") ?: obj
+        val sell = JsonView.child(obj, "sell", "to", "order", "sale") ?: obj
         val itemId = JsonView.str(obj, "itemId", "item_id")
             ?: JsonView.str(item, "id", "itemId", "item_id")
-            ?: JsonView.str(obj, "item")
-        val name = JsonView.str(obj, "displayName", "itemName", "title", "name", "item.displayName")
-            ?: JsonView.str(item, "displayName", "itemName", "title", "name")
+            ?: JsonView.str(obj, "item", "id")
+        val name = JsonView.str(obj, "displayName", "display_name", "itemName", "title", "name", "item.displayName")
+            ?: JsonView.str(item, "displayName", "display_name", "itemName", "title", "name")
             ?: itemId?.let(MarketPriceCache::quoteForId)?.name?.takeUnless { it.isBlank() || it == "Item" || it == "Eintrag" }
             ?: "Item"
-        val minecraftId = JsonView.str(obj, "minecraftId", "minecraft_id", "identityKey", "item.minecraftId")
-            ?: JsonView.str(item, "minecraftId", "minecraft_id", "identityKey")
-        val buyPrice = JsonView.number(buy, "price", "unitPrice", "buyPrice", "median", "value")
-            ?: JsonView.number(obj, "buyPrice", "buy.price", "orderPrice")
-        val sellPrice = JsonView.number(sell, "price", "unitPrice", "sellPrice", "median", "value")
-            ?: JsonView.number(obj, "sellPrice", "sell.price", "auctionPrice")
+        val minecraftId = JsonView.str(obj, "minecraftId", "minecraft_id", "identityKey", "identity_key", "registry_id", "item.minecraftId")
+            ?: JsonView.str(item, "minecraftId", "minecraft_id", "identityKey", "identity_key")
+        val buyPrice = JsonView.number(buy, "price", "unitPrice", "buyPrice", "median", "value", "ah_price", "ahPrice")
+            ?: JsonView.number(obj, "buyPrice", "buy.price", "ah_price", "ahPrice", "auctionPrice")
+        val sellPrice = JsonView.number(sell, "price", "unitPrice", "sellPrice", "median", "value", "order_price", "orderPrice")
+            ?: JsonView.number(obj, "sellPrice", "sell.price", "order_price", "orderPrice")
         val profit = JsonView.number(obj, "profit", "spread", "delta", "profitPerUnit", "profit.unit")
             ?: if (buyPrice != null && sellPrice != null) sellPrice - buyPrice else null
-        val profitPct = JsonView.number(obj, "profitPct", "profitPercent", "spreadPct", "changePct", "percent")
+        val profitPct = JsonView.number(obj, "profitPct", "profit_pct", "profitPercent", "spreadPct", "changePct", "percent")
             ?: if (buyPrice != null && buyPrice != 0.0 && profit != null) (profit / buyPrice) * 100.0 else null
-        val created = JsonView.str(obj, "updatedAt", "createdAt", "age", "timeAgo", "time") ?: ""
+        val created = JsonView.str(obj, "updatedAt", "createdAt", "last_seen_at", "lastSeenAt", "age", "timeAgo", "time") ?: ""
         val parsed = MarketStats.parseTime(created)
         return ArbitrageDeal(
             id = JsonView.str(obj, "id") ?: listOf(itemId.orEmpty(), name, buyPrice, sellPrice).joinToString(":"),
             itemId = itemId,
             name = name,
             minecraftId = minecraftId,
-            buySource = sourceLabel(JsonView.str(buy, "source", "type", "market") ?: JsonView.str(obj, "buySource", "fromSource") ?: "order"),
-            sellSource = sourceLabel(JsonView.str(sell, "source", "type", "market") ?: JsonView.str(obj, "sellSource", "toSource") ?: "auction"),
+            buySource = sourceLabel(JsonView.str(buy, "source", "type", "market") ?: JsonView.str(obj, "buySource", "fromSource") ?: "auction"),
+            sellSource = sourceLabel(JsonView.str(sell, "source", "type", "market") ?: JsonView.str(obj, "sellSource", "toSource") ?: "order"),
             buyPrice = buyPrice,
             sellPrice = sellPrice,
-            buyAverage = JsonView.number(buy, "average", "avg", "mean"),
-            sellAverage = JsonView.number(sell, "average", "avg", "mean"),
-            buyLowest = JsonView.number(buy, "lowest", "min", "low"),
-            sellLowest = JsonView.number(sell, "lowest", "min", "low"),
+            buyAverage = JsonView.number(buy, "average", "avg", "mean")
+                ?: JsonView.number(obj, "ah_avg", "ahAvg", "buyAverage"),
+            sellAverage = JsonView.number(sell, "average", "avg", "mean")
+                ?: JsonView.number(obj, "order_avg", "orderAvg", "sellAverage"),
+            buyLowest = JsonView.number(buy, "lowest", "min", "low")
+                ?: JsonView.number(obj, "ah_min", "ahMin", "buyLowest"),
+            sellLowest = JsonView.number(sell, "lowest", "min", "low")
+                ?: JsonView.number(obj, "order_min", "orderMin", "sellLowest"),
             buyCount = JsonView.number(buy, "listingCount", "count", "listings")?.toInt()
-                ?: JsonView.number(obj, "buyCount", "orderCount")?.toInt(),
+                ?: JsonView.number(obj, "buyCount", "ah_count", "ahCount")?.toInt(),
             sellCount = JsonView.number(sell, "listingCount", "count", "listings")?.toInt()
-                ?: JsonView.number(obj, "sellCount", "auctionCount")?.toInt(),
-            buyVolume = volume(buy) ?: JsonView.str(obj, "buyVolume"),
-            sellVolume = volume(sell) ?: JsonView.str(obj, "sellVolume"),
+                ?: JsonView.number(obj, "sellCount", "order_count", "orderCount")?.toInt(),
+            buyVolume = volume(buy) ?: volume(obj, "buyVolume", "ah_volume", "ahVolume"),
+            sellVolume = volume(sell) ?: volume(obj, "sellVolume", "order_volume", "orderVolume"),
             profit = profit,
             profitPct = MarketStats.asPercent(profitPct) ?: profitPct,
             age = MarketStats.formatAgo(parsed).ifBlank { created }
         )
     }
 
-    private fun volume(side: JsonObject): String? {
-        val amount = JsonView.number(side, "volume", "amount", "qty", "quantity", "times")
+    private fun volume(side: JsonObject, vararg keys: String): String? {
+        val amount = JsonView.number(side, *keys.ifEmpty { arrayOf("volume", "amount", "qty", "quantity", "times") })
         return amount?.let { "${MarketStats.formatGrouped(it)}×" }
     }
 

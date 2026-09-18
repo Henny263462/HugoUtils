@@ -98,6 +98,9 @@ class MarketHomePage : ConfigPage {
         UiWidgets.button(
             context, font, openHit, "Öffnen", lastMouseX, lastMouseY, true, ButtonStyle.PRIMARY, key = "market-home-open"
         )
+        if (working) {
+            UiDraw.spinner(context, openHit.x - 12, openHit.y + openHit.h / 2, 5)
+        }
         drawChips(context)
         drawStat(context, auctionStat, auctionCard)
         drawStat(context, orderStat, orderCard)
@@ -278,6 +281,16 @@ class MarketHomePage : ConfigPage {
     }
 
     private fun drawChips(context: DrawContext) {
+        if (working && chips.isEmpty()) {
+            chipHits = emptyList()
+            var x = chipRow.x
+            repeat(4) {
+                if (x + 86 > chipRow.right()) return
+                UiDraw.skeleton(context, UiRect(x, chipRow.y, 86, chipRow.h))
+                x += 92
+            }
+            return
+        }
         val font = client.textRenderer
         var x = chipRow.x
         val hits = ArrayList<Pair<Chip, UiRect>>()
@@ -305,6 +318,12 @@ class MarketHomePage : ConfigPage {
 
     private fun drawStat(context: DrawContext, rect: UiRect, card: StatCard) {
         val font = client.textRenderer
+        if (working && card.value == "—") {
+            UiDraw.skeleton(context, rect)
+            UiDraw.skeletonBone(context, rect.x + 8, rect.y + 10, 54, 6)
+            UiDraw.skeletonBone(context, rect.x + 8, rect.y + 24, 72, 10)
+            return
+        }
         UiDraw.panel(context, rect, HugoTheme.card, HugoTheme.cardBorder)
         context.drawText(font, card.title.uppercase(), rect.x + 8, rect.y + 8, HugoTheme.textDim, false)
         context.drawText(font, card.value, rect.x + 8, rect.y + 22, HugoTheme.text, false)
@@ -334,7 +353,13 @@ class MarketHomePage : ConfigPage {
         context.enableScissor(body.x, body.y, body.right(), body.bottom())
         val hits = ArrayList<Pair<MarketListing, UiRect>>()
         val rows = feed.visible()
-        if (rows.isEmpty()) {
+        if (working && rows.isEmpty()) {
+            for (index in 0 until (body.h / ROW).coerceAtLeast(1).coerceAtMost(8)) {
+                val row = UiRect(body.x, body.y + index * ROW, body.w, ROW - 4)
+                if (row.y > body.bottom()) break
+                UiDraw.skeletonRow(context, row)
+            }
+        } else if (rows.isEmpty()) {
             context.drawText(font, "Keine Einträge", body.x + 6, body.y + 8, HugoTheme.textDim, false)
         } else {
             rows.forEachIndexed { index, row ->

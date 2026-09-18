@@ -236,6 +236,10 @@ class MarketConfigPage : ConfigPage {
         }
         if (!gridFrame.contains(mouseX, mouseY)) return false
         val max = maxGridScroll()
+        if (max <= 0) {
+            if (hasMore) load(false, append = true)
+            return false
+        }
         gridScroll = (gridScroll - (amount * 22).toInt()).coerceIn(0, max)
         if (hasMore && gridScroll >= (max * 0.78f).toInt()) {
             load(false, append = true)
@@ -485,6 +489,9 @@ class MarketConfigPage : ConfigPage {
             context, font, refresh, if (working) "Lädt" else "Reload",
             lastMouseX, lastMouseY, !working, ButtonStyle.SECONDARY, key = "market-reload"
         )
+        if (working) {
+            UiDraw.spinner(context, refresh.x - 12, refresh.y + refresh.h / 2, 5)
+        }
         val listView = ConfigManager.config.marketListView
         UiWidgets.button(
             context, font, viewHit, if (listView) "Liste" else "Grid",
@@ -512,22 +519,45 @@ class MarketConfigPage : ConfigPage {
             Card(obj, quoteOf(obj), rect)
         }
         context.enableScissor(gridFrame.x, gridFrame.y, gridFrame.right(), gridFrame.bottom())
-        cards.forEach { card ->
-            if (card.rect.bottom() < gridFrame.y || card.rect.y > gridFrame.bottom()) return@forEach
-            drawItemCard(context, card)
-        }
-        if (cards.isEmpty()) {
-            context.drawText(
-                font,
-                emptyHint(),
-                gridFrame.x + 6,
-                gridFrame.y + 10,
-                if (statusError) HugoTheme.danger else HugoTheme.textDim,
-                false
-            )
+        if (working && visible.isEmpty()) {
+            drawGridSkeletons(context, cols, gap, cardW, cardH)
+        } else {
+            cards.forEach { card ->
+                if (card.rect.bottom() < gridFrame.y || card.rect.y > gridFrame.bottom()) return@forEach
+                drawItemCard(context, card)
+            }
+            if (cards.isEmpty()) {
+                context.drawText(
+                    font,
+                    emptyHint(),
+                    gridFrame.x + 6,
+                    gridFrame.y + 10,
+                    if (statusError) HugoTheme.danger else HugoTheme.textDim,
+                    false
+                )
+            }
+            if (loadingMore) {
+                UiDraw.spinner(context, gridFrame.x + gridFrame.w / 2, gridFrame.bottom() - 14, 6)
+            }
         }
         context.disableScissor()
         UiDraw.scrollbar(context, gridFrame, gridScroll, maxGridScroll())
+    }
+
+    private fun drawGridSkeletons(context: DrawContext, cols: Int, gap: Int, cardW: Int, cardH: Int) {
+        val count = cols * 3
+        for (index in 0 until count) {
+            val col = index % cols
+            val row = index / cols
+            val rect = UiRect(
+                gridFrame.x + col * (cardW + gap),
+                gridFrame.y + row * (cardH + gap),
+                cardW,
+                cardH
+            )
+            if (rect.y > gridFrame.bottom()) return
+            UiDraw.skeletonRow(context, rect)
+        }
     }
 
     private fun drawItemCard(context: DrawContext, card: Card) {
@@ -615,6 +645,9 @@ class MarketConfigPage : ConfigPage {
         UiWidgets.button(
             context, font, backHit, "Alle Items", lastMouseX, lastMouseY, true, ButtonStyle.GHOST, key = "market-back"
         )
+        if (working) {
+            UiDraw.spinner(context, backHit.x - 12, backHit.y + backHit.h / 2, 5)
+        }
         drawStatCard(
             context,
             auctionCard,
@@ -750,7 +783,13 @@ class MarketConfigPage : ConfigPage {
         context.drawText(font, rows.size.toString(), rect.right() - font.getWidth(rows.size.toString()) - 8, rect.y + 8, HugoTheme.textMuted, false)
         val body = UiRect(rect.x + 4, rect.y + 22, rect.w - 8, rect.h - 26)
         context.enableScissor(body.x, body.y, body.right(), body.bottom())
-        if (rows.isEmpty()) {
+        if (working && rows.isEmpty()) {
+            for (index in 0 until (body.h / LIST_ROW).coerceAtLeast(1).coerceAtMost(6)) {
+                val row = UiRect(body.x, body.y + index * LIST_ROW, body.w, LIST_ROW - 4)
+                if (row.y > body.bottom()) break
+                UiDraw.skeletonRow(context, row)
+            }
+        } else if (rows.isEmpty()) {
             context.drawText(font, "Keine Einträge", body.x + 6, body.y + 8, HugoTheme.textDim, false)
         } else {
             rows.forEachIndexed { index, row ->
@@ -785,19 +824,30 @@ class MarketConfigPage : ConfigPage {
             )
         }
         context.enableScissor(gridFrame.x, gridFrame.y, gridFrame.right(), gridFrame.bottom())
-        cards.forEach { card ->
-            if (card.rect.bottom() < gridFrame.y || card.rect.y > gridFrame.bottom()) return@forEach
-            drawItemRow(context, card)
-        }
-        if (cards.isEmpty()) {
-            context.drawText(
-                font,
-                emptyHint(),
-                gridFrame.x + 6,
-                gridFrame.y + 10,
-                if (statusError) HugoTheme.danger else HugoTheme.textDim,
-                false
-            )
+        if (working && cards.isEmpty()) {
+            for (index in 0 until 8) {
+                val rect = UiRect(gridFrame.x, gridFrame.y + index * ITEM_ROW, gridFrame.w, ITEM_ROW - 4)
+                if (rect.y > gridFrame.bottom()) break
+                UiDraw.skeletonRow(context, rect)
+            }
+        } else {
+            cards.forEach { card ->
+                if (card.rect.bottom() < gridFrame.y || card.rect.y > gridFrame.bottom()) return@forEach
+                drawItemRow(context, card)
+            }
+            if (cards.isEmpty()) {
+                context.drawText(
+                    font,
+                    emptyHint(),
+                    gridFrame.x + 6,
+                    gridFrame.y + 10,
+                    if (statusError) HugoTheme.danger else HugoTheme.textDim,
+                    false
+                )
+            }
+            if (loadingMore) {
+                UiDraw.spinner(context, gridFrame.x + gridFrame.w / 2, gridFrame.bottom() - 14, 6)
+            }
         }
         context.disableScissor()
         UiDraw.scrollbar(context, gridFrame, gridScroll, maxGridScroll())

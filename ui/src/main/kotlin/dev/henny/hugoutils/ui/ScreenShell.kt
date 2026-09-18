@@ -46,7 +46,7 @@ abstract class ScreenShell(
     protected open fun relayoutShell() {
         val margin = if (height < 280) 6 else 8
         val panelWidth = (width - margin * 2).coerceIn(UiMetrics.PANEL_MIN_WIDTH, UiMetrics.PANEL_MAX_WIDTH)
-        val panelHeight = (height - margin * 2).coerceIn(UiMetrics.PANEL_MIN_HEIGHT, UiMetrics.PANEL_MAX_HEIGHT)
+        val panelHeight = (height - margin * 2).coerceAtLeast(UiMetrics.PANEL_MIN_HEIGHT)
         val rise = ((1f - entrance.value) * 22f).toInt()
         panel = UiRect((width - panelWidth) / 2, (height - panelHeight) / 2 + rise, panelWidth, panelHeight)
         val railWidth = UiMetrics.RAIL_WIDTH.coerceAtMost(panelWidth / 3)
@@ -66,14 +66,24 @@ abstract class ScreenShell(
         tickShell()
         frameTicked = false
         val alpha = entrance.value
+        val radius = UiDraw.cornerRadius(panel.w, panel.h, UiMetrics.CORNER)
         UiDraw.shadow(context, panel, alpha)
         UiDraw.panel(
             context,
             panel,
             UiDraw.alpha(UiDraw.theme.panel, alpha),
-            UiDraw.alpha(UiDraw.theme.panelBorder, alpha)
+            UiDraw.alpha(UiDraw.theme.panelBorder, alpha),
+            radius
         )
-        UiDraw.fill(context, sidebar.x + 1, sidebar.y + 1, sidebar.w - 1, sidebar.h - 2, UiDraw.alpha(UiDraw.theme.sidebar, alpha))
+        Rounded.fill(
+            context,
+            sidebar.x + 1,
+            sidebar.y + 1,
+            sidebar.w - 1,
+            sidebar.h - 2,
+            UiDraw.alpha(UiDraw.theme.sidebar, alpha),
+            CornerRadii.left(radius)
+        )
         if (subnav.w > 8) {
             UiDraw.fill(context, subnav.x, subnav.y + 1, subnav.w, subnav.h - 2, UiDraw.alpha(UiDraw.theme.inset, alpha))
         }

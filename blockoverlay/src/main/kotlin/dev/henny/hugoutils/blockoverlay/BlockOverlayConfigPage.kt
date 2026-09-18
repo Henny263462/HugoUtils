@@ -5,9 +5,11 @@ import dev.henny.hugoutils.client.ui.ConfigPage
 import dev.henny.hugoutils.client.ui.HugoTheme
 import dev.henny.hugoutils.ui.ButtonStyle
 import dev.henny.hugoutils.ui.ColorPicker
+import dev.henny.hugoutils.ui.SliderMath
 import dev.henny.hugoutils.ui.UiDraw
 import dev.henny.hugoutils.ui.UiRect
 import dev.henny.hugoutils.ui.UiWidgets
+import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.input.CharInput
@@ -26,13 +28,13 @@ class BlockOverlayConfigPage : ConfigPage {
     private var removeButton = UiRect(0, 0, 0, 0)
     private var opacity = UiRect(0, 0, 0, 0)
     private var selected: String? = null
-    private var status = "Farbe sitzt im Chunk-Mesh. Suche oder klicke Blöcke."
+    private var status = rendererHint()
     private var draggingOpacity = false
     private var mouseX = 0.0
     private var mouseY = 0.0
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
-        val h = height.coerceAtLeast(320)
+        val h = height.coerceAtLeast(360)
         frame = UiRect(x, y, width, h)
         toggle = UiRect(frame.right - 42, y + 10, 32, 14)
         picker.layout(x + 10, y, 100, 72)
@@ -65,7 +67,7 @@ class BlockOverlayConfigPage : ConfigPage {
             frame.x + 10,
             frame.y + 8,
             "Block-Overlay",
-            "${BlockOverlayConfig.keys().size} Blöcke · Farbe sitzt im Chunk-Mesh"
+            "${BlockOverlayConfig.keys().size} Blöcke · ${if (SODIUM) "Sodium" else "Vanilla"}"
         )
         UiWidgets.toggle(context, toggle, BlockOverlayConfig.enabled, this.mouseX, this.mouseY, key = "overlay-enabled")
         blocks.render(context, mouseX, mouseY)
@@ -74,7 +76,7 @@ class BlockOverlayConfigPage : ConfigPage {
             picker.render(context, style)
             UiWidgets.labeledSlider(
                 context, font, opacity, "Deckkraft", "${(style.opacity * 100).roundToInt()}%",
-                style.opacity, this.mouseX, this.mouseY, key = "overlay-opacity"
+                style.opacity, this.mouseX, this.mouseY, key = "overlay-opacity", immediate = draggingOpacity
             )
             UiWidgets.button(context, font, removeButton, "Entfernen", this.mouseX, this.mouseY, style = ButtonStyle.DANGER, key = "overlay-remove")
         } ?: context.drawText(font, "Block im Raster wählen", editor.x + 12, editor.y + 16, HugoTheme.textDim, false)
@@ -87,18 +89,12 @@ class BlockOverlayConfigPage : ConfigPage {
             save()
             return true
         }
-        if (blocks.mouseClicked(mouseX, mouseY)) {
-            picker.unfocus()
-            blocks.clickedId?.let { selected = it }
-            status = "Overlay gilt in allen Chunks"
-            return true
-        }
         val style = currentStyle()
         if (style != null && picker.mouseClicked(style, mouseX, mouseY)) {
             blocks.unfocus()
             return true
         }
-        if (style != null && opacity.contains(mouseX, mouseY)) {
+        if (style != null && SliderMath.contains(opacity, mouseX, mouseY)) {
             draggingOpacity = true
             applyOpacity(mouseX)
             return true
@@ -107,6 +103,12 @@ class BlockOverlayConfigPage : ConfigPage {
             BlockOverlayConfig.remove(selected)
             selected = BlockOverlayConfig.keys().firstOrNull()
             save()
+            return true
+        }
+        if (blocks.mouseClicked(mouseX, mouseY)) {
+            picker.unfocus()
+            blocks.clickedId?.let { selected = it }
+            status = "Overlay gilt in allen Chunks"
             return true
         }
         return frame.contains(mouseX, mouseY)
@@ -152,9 +154,20 @@ class BlockOverlayConfigPage : ConfigPage {
     private fun currentStyle(): BlockOverlayStyle? = selected?.let(BlockOverlayConfig::style)
 
     private fun applyOpacity(x: Double) {
-        currentStyle()?.opacity = ((x - opacity.x) / opacity.w.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f)
+        currentStyle()?.opacity = SliderMath.normalized(opacity, x)
         save()
     }
 
-    private fun save() = BlockOverlayConfig.notifyWorld()
+    private fun save() {
+        status = rendererHint()
+        BlockOverlayConfig.notifyWorld()
+    }
+
+    companion object {
+        private val SODIUM = FabricLoader.getInstance().isModLoaded("sodium")
+
+        private fun rendererHint(): String =
+            if (SODIUM) "Sodium erkannt · Overlay wird in die Chunks gebacken."
+            else "Farbe sitzt im Chunk-Mesh. Suche oder klicke Blöcke."
+    }
 }

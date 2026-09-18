@@ -1,13 +1,16 @@
 package dev.henny.hugoutils.client
 
 import dev.henny.hugoutils.api.AuthApiClient
+import dev.henny.hugoutils.api.ClientApi
 import dev.henny.hugoutils.api.ClientFlags
 import dev.henny.hugoutils.api.ClientSessionStore
 import dev.henny.hugoutils.api.MarketItemTooltips
+import dev.henny.hugoutils.api.MarketPriceCache
 import dev.henny.hugoutils.api.PriceAlertWatcher
 import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.config.EffectsConfig
 import dev.henny.hugoutils.client.gui.capture.GuiCaptureController
+import dev.henny.hugoutils.client.rtp.RtpShare
 import dev.henny.hugoutils.client.input.ModClientCommands
 import dev.henny.hugoutils.client.input.ModKeyBindings
 import dev.henny.hugoutils.client.ui.AfkBotConfigPage
@@ -21,6 +24,7 @@ import dev.henny.hugoutils.client.ui.GuiCaptureConfigPage
 import dev.henny.hugoutils.client.ui.HugoScreen
 import dev.henny.hugoutils.client.ui.MarketConfigPage
 import dev.henny.hugoutils.client.ui.MarketHomePage
+import dev.henny.hugoutils.client.ui.MarketStacks
 import dev.henny.hugoutils.client.ui.MenuButtons
 import dev.henny.hugoutils.client.ui.PerspectiveConfigPage
 import dev.henny.hugoutils.client.ui.ProfileConfigPage
@@ -32,6 +36,7 @@ import dev.henny.hugoutils.ui.UiDebugCommands
 import dev.henny.hugoutils.ui.UiNavigation
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
 
@@ -48,6 +53,11 @@ class HugoutilsClient : ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STARTED.register {
             AuthApiClient.ensureLoggedIn()
         }
+        ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
+            MarketPriceCache.clear()
+            MarketStacks.clear()
+            ClientApi.invalidate()
+        }
         ConfigManager.registerSection(EffectsConfig)
         UpdateManager.initialize()
         MarketItemTooltips.initialize()
@@ -62,7 +72,7 @@ class HugoutilsClient : ClientModInitializer {
         ConfigPages.register(ComingSoonPage(
             ConfigCategory.MARKET_ARBITRAGE,
             message = "Coming soon",
-            detail = "Orders kaufen, Auktionen verkaufen — folgt."
+            detail = "Auktionen kaufen, Orders verkaufen — folgt."
         ))
         ConfigPages.register(ComingSoonPage(ConfigCategory.MARKET_PLAYERS))
         ConfigPages.register(ComingSoonPage(ConfigCategory.MARKET_SHOP))
@@ -88,5 +98,6 @@ class HugoutilsClient : ClientModInitializer {
         ModKeyBindings.initialize()
         MenuButtons.initialize()
         GuiCaptureController.initialize()
+        RtpShare.initialize()
     }
 }

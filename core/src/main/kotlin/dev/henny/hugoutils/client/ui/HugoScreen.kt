@@ -57,6 +57,9 @@ class HugoScreen(
     private val navHits = ArrayList<Pair<NavigationEntry, UiRect>>()
     private val subnavHits = ArrayList<Pair<NavigationEntry, UiRect>>()
     private val footerHits = ArrayList<Pair<NavigationEntry, UiRect>>()
+    private var subnavScroll = 0
+    private var maxSubnavScroll = 0
+    private var subnavViewport = UiRect(0, 0, 0, 0)
 
     private var droppedCard = GlowCardLayout()
     private var heldGlowCard = GlowCardLayout()
@@ -65,6 +68,7 @@ class HugoScreen(
 
     private var lastMouseX = -1.0
     private var lastMouseY = -1.0
+    private var lastNavKey = 0
     private var tooltipText: String? = null
     private val globalSearch = GlobalSearch(
         onOpenPage = { id -> selectPage(id) },
@@ -182,6 +186,33 @@ class HugoScreen(
         globalSearch.layout(content.x, content.y, content.w)
         scissor = UiRect(content.x, content.y + globalSearch.height(), content.w, (content.h - globalSearch.height()).coerceAtLeast(80))
 
+        val navKey = width xor (height shl 10) xor (scroll shl 3) xor (subnav.w shl 16) xor
+            (panel.y shl 5) xor subnavScroll xor (selectedPageId?.hashCode() ?: 0)
+        if (navKey != lastNavKey) {
+            lastNavKey = navKey
+            rebuildNavHits()
+        }
+
+        val pages = extraPages()
+        if (pages.size == 1) {
+            val h = pages[0].layout(content.x, scissor.y - scroll, content.w, scissor.h)
+            maxScroll = (h - scissor.h).coerceAtLeast(0)
+        } else if (pages.isNotEmpty()) {
+            var y = scissor.y + 4 - scroll
+            var totalH = 4
+            for (page in pages) {
+                val h = page.layout(content.x, y, content.w, scissor.h)
+                totalH += h + 8
+                y += h + 8
+            }
+            maxScroll = (totalH - scissor.h).coerceAtLeast(0)
+        } else {
+            maxScroll = 0
+        }
+        scroll = scroll.coerceIn(0, maxScroll)
+    }
+
+    private fun rebuildNavHits() {
         navHits.clear()
         subnavHits.clear()
         footerHits.clear()
@@ -202,30 +233,20 @@ class HugoScreen(
 
         val parentId = subnavParentId()
         if (parentId != null && subnav.w > 12) {
-            var subY = subnav.y + 32
-            for (entry in registry.children(parentId).filter { it.available }) {
+            val children = registry.children(parentId).filter { it.available }
+            subnavViewport = UiRect(subnav.x, subnav.y + 30, subnav.w, (subnav.h - 38).coerceAtLeast(24))
+            maxSubnavScroll = (children.size * 26 - subnavViewport.h).coerceAtLeast(0)
+            subnavScroll = subnavScroll.coerceIn(0, maxSubnavScroll)
+            var subY = subnavViewport.y + 2 - subnavScroll
+            for (entry in children) {
                 subnavHits += entry to UiRect(subnav.x + 6, subY, (subnav.w - 12).coerceAtLeast(8), 22)
                 subY += 26
             }
-        }
-
-        val pages = extraPages()
-        if (pages.size == 1) {
-            val h = pages[0].layout(content.x, scissor.y - scroll, content.w, scissor.h)
-            maxScroll = (h - scissor.h).coerceAtLeast(0)
-        } else if (pages.isNotEmpty()) {
-            var y = scissor.y + 4 - scroll
-            var totalH = 4
-            for (page in pages) {
-                val h = page.layout(content.x, y, content.w, scissor.h)
-                totalH += h + 8
-                y += h + 8
-            }
-            maxScroll = (totalH - scissor.h).coerceAtLeast(0)
         } else {
-            maxScroll = 0
+            subnavViewport = UiRect(0, 0, 0, 0)
+            maxSubnavScroll = 0
+            subnavScroll = 0
         }
-        scroll = scroll.coerceIn(0, maxScroll)
     }
 
     private fun sideBySide(cardW: Int, picker: ColorPicker): Boolean =
@@ -344,14 +365,14 @@ class HugoScreen(
         if (sideBySide(w, picker)) {
             val sliderX = picker.field.x + picker.width() + 14
             val sliderW = (x + w - 10 - sliderX).coerceAtLeast(80)
-            card.transparency = UiRect(sliderX, y + HEADER_H, sliderW, 20)
-            card.intensity = UiRect(sliderX, y + HEADER_H + 24, sliderW, 20)
-            card.width = UiRect(sliderX, y + HEADER_H + 48, sliderW, 20)
+            card.transparency = UiRect(sliderX, y + HEADER_H, sliderW, 28)
+            card.intensity = UiRect(0, 0, 0, 0)
+            card.width = UiRect(sliderX, y + HEADER_H + 32, sliderW, 28)
         } else {
             val sliderY = y + HEADER_H + picker.height() + 8
-            card.transparency = UiRect(x + 10, sliderY, w - 20, 20)
-            card.intensity = UiRect(x + 10, sliderY + 22, w - 20, 20)
-            card.width = UiRect(x + 10, sliderY + 44, w - 20, 20)
+            card.transparency = UiRect(x + 10, sliderY, w - 20, 28)
+            card.intensity = UiRect(0, 0, 0, 0)
+            card.width = UiRect(x + 10, sliderY + 32, w - 20, 28)
         }
         val pickerBlock = if (sideBySide(w, picker)) picker.height() else picker.height() + 66
         card.filterButton = UiRect(x + 10, y + HEADER_H + pickerBlock + 8, w - 20, 24)
@@ -389,12 +410,12 @@ class HugoScreen(
         if (sideBySide(w, picker)) {
             val sliderX = picker.field.x + picker.width() + 14
             val sliderW = (x + w - 10 - sliderX).coerceAtLeast(80)
-            card.transparency = UiRect(sliderX, y + HEADER_H + 24, sliderW, 20)
-            card.speed = UiRect(sliderX, y + HEADER_H + 48, sliderW, 20)
+            card.transparency = UiRect(sliderX, y + HEADER_H + 24, sliderW, 28)
+            card.speed = UiRect(sliderX, y + HEADER_H + 56, sliderW, 28)
         } else {
             val sliderY = y + HEADER_H + 24 + picker.height() + 8
-            card.transparency = UiRect(x + 10, sliderY, w - 20, 20)
-            card.speed = UiRect(x + 10, sliderY + 22, w - 20, 20)
+            card.transparency = UiRect(x + 10, sliderY, w - 20, 28)
+            card.speed = UiRect(x + 10, sliderY + 32, w - 20, 28)
         }
         val pickerBlock = if (sideBySide(w, picker)) picker.height() else picker.height() + 44
         card.filterButton = UiRect(x + 10, y + HEADER_H + 24 + pickerBlock + 8, w - 20, 24)
@@ -413,16 +434,17 @@ class HugoScreen(
         }
 
         if (subnav.w > 12) {
-            context.enableScissor(subnav.x, subnav.y + 8, subnav.right(), subnav.bottom() - 8)
             context.matrices.pushMatrix()
             context.matrices.translate((1f - subnavReveal.value) * -16f, 0f)
             val parentTitle = UiNavigation.registry.entry(subnavParentId().orEmpty())?.title ?: "Mods"
             context.drawText(textRenderer, parentTitle, subnav.x + 10, subnav.y + 14, HugoTheme.textDim, false)
+            context.enableScissor(subnavViewport.x, subnavViewport.y, subnavViewport.right(), subnavViewport.bottom())
             for ((entry, hit) in subnavHits) {
                 drawNavEntry(context, entry, hit, mouseX, mouseY, selected = entry.id == selectedPageId, compact = true)
             }
-            context.matrices.popMatrix()
             context.disableScissor()
+            UiDraw.scrollbar(context, subnavViewport, subnavScroll, maxSubnavScroll)
+            context.matrices.popMatrix()
         }
 
         val version = FabricLoader.getInstance()
@@ -507,11 +529,12 @@ class HugoScreen(
         }
         picker.render(context, style)
         drawSlider(context, layout.transparency, "Deckkraft", style.opacity, transparencyId)
+        val maxThickness = if (widthId == SliderId.HELD_WIDTH) GlowStyle.MAX_HELD_THICKNESS else GlowStyle.MAX_THICKNESS
         drawSlider(
             context,
             layout.width,
             "Konturbreite: ${style.thicknessPixels}px",
-            (style.thicknessPixels - 1) / 3f,
+            GlowStyle.thicknessSlider(style.thicknessPixels, maxThickness),
             widthId
         )
         drawFilterButton(context, layout.filterButton, if (filter == null) "Spieler & Farben…" else "Items / Blöcke auswählen…")
@@ -613,10 +636,23 @@ class HugoScreen(
         val percent = "${(value * 100).roundToInt()}%"
         context.drawText(textRenderer, percent, rect.right() - textRenderer.getWidth(percent), rect.y, HugoTheme.text, false)
         val trackY = rect.y + 12
-        UiWidgets.sliderTrack(context, UiRect(rect.x, trackY, rect.w, 6), value, hovered, key = id)
+        UiWidgets.sliderTrack(
+            context,
+            UiRect(rect.x, trackY, rect.w, 6),
+            value,
+            hovered,
+            key = id,
+            immediate = draggingSlider == id
+        )
     }
 
     override fun mouseClicked(click: Click, doubled: Boolean): Boolean {
+        val handled = onMouseClicked(click, doubled)
+        if (handled && click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) setDragging(true)
+        return handled
+    }
+
+    private fun onMouseClicked(click: Click, doubled: Boolean): Boolean {
         PopupManager.active?.let {
             val (mx, my) = pointer(click)
             return it.mouseClicked(mx, my)
@@ -718,6 +754,14 @@ class HugoScreen(
                 PopupManager.open(ItemFilterPopup("Hand-Glint", ConfigManager.config.heldGlint.filter) { persist() })
                 return true
             }
+            for (id in ALL_SLIDERS) {
+                if (sliderEnabled(id) && sliderHitRect(id).contains(mx, my)) {
+                    draggingSlider = id
+                    applySlider(id, mx)
+                    persist()
+                    return true
+                }
+            }
             if (category == ConfigCategory.DROPPED_GLOW && droppedPicker.mouseClicked(ConfigManager.config.droppedItemGlow, mx, my)) {
                 heldGlowPicker.unfocus()
                 playerGlowPicker.unfocus()
@@ -753,14 +797,6 @@ class HugoScreen(
                 persist()
                 return true
             }
-            for (id in ALL_SLIDERS) {
-                if (sliderEnabled(id) && sliderRect(id).contains(mx, my)) {
-                    draggingSlider = id
-                    applySlider(id, mx)
-                    persist()
-                    return true
-                }
-            }
             for (page in extraPages()) {
                 if (page.mouseClicked(mx, my, GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
                     persist()
@@ -781,11 +817,21 @@ class HugoScreen(
         return super.mouseClicked(click, doubled)
     }
 
+    override fun mouseMoved(mouseX: Double, mouseY: Double) {
+        val (mx, my) = scalePointer(mouseX, mouseY)
+        lastMouseX = mx
+        lastMouseY = my
+        applyDraggingSlider(mx)
+        extraPages().forEach { it.mouseDragged(mx, my) }
+        super.mouseMoved(mouseX, mouseY)
+    }
+
     override fun mouseDragged(click: Click, offsetX: Double, offsetY: Double): Boolean {
         val (mx, my) = pointer(click)
         PopupManager.active?.let {
             if (it.mouseDragged(mx, my)) return true
         }
+        if (applyDraggingSlider(mx)) return true
         if (isBuiltInVisual()) {
             val pickerDragged =
                 (category == ConfigCategory.DROPPED_GLOW &&
@@ -807,15 +853,6 @@ class HugoScreen(
                 return true
             }
         }
-        draggingSlider?.let { id ->
-            if (!sliderEnabled(id)) {
-                draggingSlider = null
-                return@let
-            }
-            applySlider(id, mx)
-            persist()
-            return true
-        }
         return super.mouseDragged(click, offsetX, offsetY)
     }
 
@@ -836,8 +873,13 @@ class HugoScreen(
         horizontalAmount: Double,
         verticalAmount: Double
     ): Boolean {
-        val (mx, my) = scalePointer(mouseX, mouseY)
+        val (mx, my) = pointer()
         PopupManager.active?.let { return it.mouseScrolled(mx, my, verticalAmount) }
+        if (subnav.contains(mx, my) && maxSubnavScroll > 0) {
+            subnavScroll = (subnavScroll - (verticalAmount * 18).roundToInt()).coerceIn(0, maxSubnavScroll)
+            relayout()
+            return true
+        }
         if (isBuiltInVisual()) {
             if (category == ConfigCategory.DROPPED_GLOW && droppedFilter.mouseScrolled(mx, my, verticalAmount)
             ) {
@@ -965,6 +1007,7 @@ class HugoScreen(
     }
 
     private fun selectPage(id: String) {
+        val previousParent = subnavParentId()
         ConfigCategory.entries.firstOrNull { it.id == id }?.let { category = it }
         selectedPageId = id
         ConfigManager.config.lastOpenedPage = id
@@ -974,6 +1017,7 @@ class HugoScreen(
         ConfigManager.requestSave()
         animatePageChange()
         scroll = 0
+        if (subnavParentId() != previousParent) subnavScroll = 0
         relayout()
         notifyShown()
     }
@@ -1040,19 +1084,20 @@ class HugoScreen(
 
     private fun applySlider(id: SliderId, mouseX: Double) {
         val rect = sliderRect(id)
-        val value = ((mouseX - rect.x) / rect.w.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f)
+        val value = SliderMath.normalized(rect, mouseX)
         val config = ConfigManager.config
         when (id) {
             SliderId.DROPPED_TRANSPARENCY -> config.droppedItemGlow.opacity = value
-            SliderId.DROPPED_WIDTH -> config.droppedItemGlow.thicknessPixels = (1 + value * 3f).roundToInt().coerceIn(1, 4)
+            SliderId.DROPPED_WIDTH -> config.droppedItemGlow.thicknessPixels = GlowStyle.thicknessFromSlider(value)
             SliderId.DROPPED_INTENSITY -> Unit
             SliderId.GLINT_TRANSPARENCY -> config.heldGlint.transparency = 1f - value
             SliderId.GLINT_SPEED -> config.heldGlint.speed = value
             SliderId.HELD_TRANSPARENCY -> config.heldItemGlow.opacity = value
             SliderId.HELD_INTENSITY -> Unit
-            SliderId.HELD_WIDTH -> config.heldItemGlow.thicknessPixels = (1 + value * 3f).roundToInt().coerceIn(1, 4)
+            SliderId.HELD_WIDTH -> config.heldItemGlow.thicknessPixels =
+                GlowStyle.thicknessFromSlider(value, GlowStyle.MAX_HELD_THICKNESS)
             SliderId.PLAYER_TRANSPARENCY -> config.playerGlow.opacity = value
-            SliderId.PLAYER_WIDTH -> config.playerGlow.thicknessPixels = (1 + value * 3f).roundToInt().coerceIn(1, 4)
+            SliderId.PLAYER_WIDTH -> config.playerGlow.thicknessPixels = GlowStyle.thicknessFromSlider(value)
             SliderId.PLAYER_INTENSITY -> Unit
         }
     }
@@ -1076,7 +1121,33 @@ class HugoScreen(
         globalSearch.unfocus()
     }
 
-    private fun pointer(click: Click): Pair<Double, Double> = scalePointer(click.x(), click.y())
+    private fun applyDraggingSlider(mouseX: Double): Boolean {
+        val id = draggingSlider ?: return false
+        if (!sliderEnabled(id)) {
+            draggingSlider = null
+            return false
+        }
+        applySlider(id, mouseX)
+        persist()
+        return true
+    }
+
+    private fun sliderHitRect(id: SliderId): UiRect = SliderMath.hit(sliderRect(id))
+
+    private fun pointer(click: Click? = null): Pair<Double, Double> {
+        if (click != null) {
+            val scaled = scalePointer(click.x(), click.y())
+            lastMouseX = scaled.first
+            lastMouseY = scaled.second
+            return scaled
+        }
+        if (lastMouseX >= 0 && lastMouseY >= 0) return lastMouseX to lastMouseY
+        val current = client ?: return 0.0 to 0.0
+        val window = current.window
+        val scaledX = current.mouse.getScaledX(window)
+        val scaledY = current.mouse.getScaledY(window)
+        return if (scaledX.isFinite() && scaledY.isFinite()) scaledX to scaledY else 0.0 to 0.0
+    }
 
     private fun scalePointer(x: Double, y: Double): Pair<Double, Double> {
         val current = client ?: return x to y

@@ -82,7 +82,7 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
     }
 
     private fun renderGallery(context: DrawContext, mouseX: Int, mouseY: Int, x: Int, y: Int) {
-        val card = UiRect(x, y, content.w - 16, 184)
+        val card = UiRect(x, y, content.w - 16, 208)
         Card(card, "Interaktive Controls").render(context, textRenderer, mouseX, mouseY)
         toggle.bounds = UiRect(x + 12, y + 38, 34, 14)
         toggle.render(context, textRenderer, mouseX, mouseY)
@@ -94,6 +94,12 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
         tabs.render(context, textRenderer, mouseX, mouseY)
         dropdown.bounds = UiRect(tabs.bounds.right + 6, y + 124, card.w - tabs.bounds.w - 30, UiMetrics.CONTROL_HEIGHT)
         dropdown.render(context, textRenderer, mouseX, mouseY)
+        val spark = Sparkline(
+            UiRect(x + 12, y + 158, card.w - 24, 36),
+            listOf(4f, 5f, 8f, 6f, 9f, 14f, 11f, 16f, 13f, 18f, 17f, 19f),
+            UiDraw.theme.success
+        )
+        spark.render(context, textRenderer, mouseX, mouseY)
     }
 
     private fun renderForm(context: DrawContext, mouseX: Int, mouseY: Int, x: Int, y: Int) {
@@ -141,12 +147,31 @@ class UiDemoScreen(private val demo: UiDemo) : ScreenShell(Text.literal("HugoUti
         val x = click.x()
         val y = click.y()
         UiOverlays.host.active?.let { return it.mouseClicked(x, y) }
-        if (demo == UiDemo.DIALOG) {
-            if (toastControl.mouseClicked(x, y)) return true
-            if (dialogControl.mouseClicked(x, y)) return true
-        }
-        return dropdown.mouseClicked(x, y) || tabs.mouseClicked(x, y) || field.mouseClicked(x, y) || toggle.mouseClicked(x, y) || slider.mouseClicked(x, y) ||
+        val handled = if (demo == UiDemo.DIALOG) {
+            toastControl.mouseClicked(x, y) || dialogControl.mouseClicked(x, y)
+        } else {
+            false
+        } || dropdown.mouseClicked(x, y) || tabs.mouseClicked(x, y) || field.mouseClicked(x, y) ||
+            toggle.mouseClicked(x, y) || slider.mouseClicked(x, y) ||
             super.mouseClicked(click, doubled)
+        if (handled) setDragging(true)
+        return handled
+    }
+
+    override fun mouseDragged(click: net.minecraft.client.gui.Click, offsetX: Double, offsetY: Double): Boolean {
+        val x = click.x()
+        val y = click.y()
+        UiOverlays.host.active?.let { if (it.mouseDragged(x, y)) return true }
+        if (slider.mouseDragged(x, y)) return true
+        return super.mouseDragged(click, offsetX, offsetY)
+    }
+
+    override fun mouseReleased(click: net.minecraft.client.gui.Click): Boolean {
+        slider.mouseReleased()
+        field.mouseReleased()
+        dropdown.mouseReleased()
+        UiOverlays.host.active?.mouseReleased()
+        return super.mouseReleased(click)
     }
 
     override fun keyPressed(input: KeyInput): Boolean =

@@ -11,6 +11,7 @@ object MarketPriceCache {
 
     fun put(quote: MarketQuote) {
         keysOf(quote).forEach { byKey[it] = quote }
+        trimQuotes()
     }
 
     fun quoteFor(stack: ItemStack): MarketQuote? {
@@ -36,6 +37,7 @@ object MarketPriceCache {
         if (now - last < RETRY_MS) return
         if (!inflight.add(key)) return
         attemptedAt[key] = now
+        trimAttempted()
         ClientJobs.submit({ _, _ -> inflight.remove(key) }) {
             lookup(key)
             ""
@@ -49,6 +51,14 @@ object MarketPriceCache {
             ""
         }
     }
+
+    fun clear() {
+        byKey.clear()
+        inflight.clear()
+        attemptedAt.clear()
+    }
+
+    internal fun sizeForTests(): Int = byKey.size
 
     private fun lookup(id: String) {
         val queries = listOf(id, id.substringAfter(':')).distinct()
@@ -86,5 +96,26 @@ object MarketPriceCache {
         ).distinct()
     }
 
+    private fun trimQuotes() {
+        if (byKey.size <= MAX_QUOTES) return
+        val unique = LinkedHashSet(byKey.values)
+        val overflow = unique.size - MAX_QUOTES
+        if (overflow > 0) {
+            unique.take(overflow).forEach { stale ->
+                keysOf(stale).forEach { key -> byKey.remove(key, stale) }
+            }
+        }
+        if (byKey.size > MAX_KEYS) {
+            byKey.keys.take(byKey.size - MAX_KEYS).forEach { byKey.remove(it) }
+        }
+    }
+
+    private fun trimAttempted() {
+        if (attemptedAt.size <= MAX_KEYS) return
+        attemptedAt.keys.take(attemptedAt.size - MAX_KEYS).forEach { attemptedAt.remove(it) }
+    }
+
     private const val RETRY_MS = 20_000L
+    internal const val MAX_QUOTES = 128
+    internal const val MAX_KEYS = 512
 }

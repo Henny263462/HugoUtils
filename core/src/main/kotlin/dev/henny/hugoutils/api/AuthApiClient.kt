@@ -2,6 +2,7 @@ package dev.henny.hugoutils.api
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import dev.henny.hugoutils.client.rtp.RtpShare
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.minecraft.client.MinecraftClient
 import net.minecraft.text.Text
@@ -49,9 +50,8 @@ object AuthApiClient {
             try {
                 if (ClientSessionStore.hasToken()) {
                     try {
-                        ClientApi.me(force = true)
-                        ClientFlags.refreshFromApi()
-                        MarketPriceCache.prefetch()
+                        val me = ClientApi.me(force = true)
+                        refreshAccount(me)
                         if (!silent) dispatchFeedback(feedback, "Angemeldet. Market, Shop und AFK sind jetzt verfügbar.", false)
                         return@execute
                     } catch (error: ClientApiException) {
@@ -98,9 +98,7 @@ object AuthApiClient {
                     val uuid = session.uuidOrNull ?: throw LoginFailure("Offline-Konten können den Client-Login nicht verwenden.")
                     ClientAuth.parseComplete(JsonObject().apply { addProperty("token", trimmed) })
                     ClientSessionStore.save(ClientSession(trimmed, session.username, uuid.toString(), null))
-                    runCatching { ClientApi.me(force = true) }
-                    ClientFlags.refreshFromApi()
-                    MarketPriceCache.prefetch()
+                    runCatching { refreshAccount(ClientApi.me(force = true)) }
                     dispatchFeedback(feedback, "Market-Token gespeichert.", false)
                     return@execute
                 }
@@ -152,9 +150,7 @@ object AuthApiClient {
                 ClientSessionStore.save(
                     ClientSession(complete.token, playerName, playerUuid, complete.expiresAt)
                 )
-                runCatching { ClientApi.me(force = true) }
-                ClientFlags.refreshFromApi()
-                MarketPriceCache.prefetch()
+                runCatching { refreshAccount(ClientApi.me(force = true)) }
                 return
             } catch (error: ClientApiException) {
                 last = error
@@ -189,6 +185,12 @@ object AuthApiClient {
             }
         }
         throw last ?: LoginFailure("Website-Anmeldung fehlgeschlagen.")
+    }
+
+    private fun refreshAccount(me: JsonObject) {
+        ClientFlags.refreshFromApi()
+        MarketPriceCache.prefetch()
+        runCatching { RtpShare.syncFromMe(me) }
     }
 
     private fun joinMojang(serverId: String) {

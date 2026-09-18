@@ -6,6 +6,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.JsonSyntaxException
 import dev.henny.hugoutils.HugoIds
+import dev.henny.hugoutils.api.ClientApi
 import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -116,10 +117,11 @@ object ConfigManager {
 
     fun applyUiMetrics() {
         dev.henny.hugoutils.ui.UiMetrics.corner = config.uiCornerRadius
+        ClientApi.outlierProtectionEnabled = { config.outlierProtection }
     }
 
     fun setUiCornerRadius(value: Int) {
-        config.uiCornerRadius = value.coerceIn(0, 12)
+        config.uiCornerRadius = value.coerceIn(0, dev.henny.hugoutils.ui.UiMetrics.CORNER_MAX)
         applyUiMetrics()
         requestSave()
     }
@@ -238,6 +240,12 @@ object ConfigManager {
         if (tree.has("perspectiveMode")) {
             config.perspectiveMode = value.perspectiveMode
         }
+        if (tree.has("showCrosshairInThirdPerson")) {
+            config.showCrosshairInThirdPerson = value.showCrosshairInThirdPerson
+        }
+        if (tree.has("showOwnNameInThirdPerson")) {
+            config.showOwnNameInThirdPerson = value.showOwnNameInThirdPerson
+        }
         if (tree.has("checkUpdatesAutomatically")) {
             config.checkUpdatesAutomatically = value.checkUpdatesAutomatically
         }
@@ -255,6 +263,12 @@ object ConfigManager {
         }
         if (tree.has("restoreLastPage")) {
             config.restoreLastPage = value.restoreLastPage
+        }
+        if (tree.has("outlierProtection")) {
+            config.outlierProtection = value.outlierProtection
+        }
+        if (tree.has("rtpShareEnabled") && !tree.get("rtpShareEnabled").isJsonNull) {
+            config.rtpShareEnabled = tree.get("rtpShareEnabled").asBoolean
         }
         if (tree.has("marketListView")) {
             config.marketListView = value.marketListView
@@ -294,7 +308,7 @@ object ConfigManager {
         val intensity = json.get("intensity")?.asFloat ?: 0.75f
         val width = json.get("width")?.asFloat ?: 0.5f
         style.opacity = ((1f - transparency) * (0.2f + intensity * 0.8f)).coerceIn(0f, 1f)
-        style.thicknessPixels = (1f + width.coerceIn(0f, 1f) * 3f).toInt().coerceIn(1, 4)
+        style.thicknessPixels = GlowStyle.thicknessFromSlider(width.coerceIn(0f, 1f))
     }
 
     private fun ensureInitialProfile() {

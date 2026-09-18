@@ -1,6 +1,7 @@
 package dev.henny.hugoutils.mixin;
 
 import dev.henny.hugoutils.client.gui.capture.GuiCaptureHooks;
+import dev.henny.hugoutils.client.rtp.RtpShare;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
@@ -32,6 +33,15 @@ public abstract class GuiCaptureHandledScreenMixin {
         if (GuiCaptureHooks.mouseClicked((HandledScreen<?>) (Object) this, click)) {
             cir.setReturnValue(true);
         }
+    }
+
+    @Inject(method = "mouseClicked", at = @At("TAIL"))
+    private void hugoutils$observeRtpClick(
+        Click click,
+        boolean doubled,
+        CallbackInfoReturnable<Boolean> cir
+    ) {
+        RtpShare.observeHandledClick((HandledScreen<?>) (Object) this, click);
     }
 
 }

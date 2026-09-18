@@ -64,9 +64,12 @@ class MarketArbitragePage : ConfigPage {
             context, font, refresh, if (working) "Lädt" else "Reload",
             lastMouseX, lastMouseY, !working, ButtonStyle.SECONDARY, key = "arb-reload"
         )
+        if (working) {
+            UiDraw.spinner(context, refresh.x - 12, refresh.y + refresh.h / 2, 5)
+        }
         context.drawText(
             font,
-            "Orders kaufen, Auktionen verkaufen",
+            "Auktionen kaufen, Orders verkaufen",
             frame.x + 10,
             frame.y + 24,
             HugoTheme.textDim,
@@ -75,7 +78,13 @@ class MarketArbitragePage : ConfigPage {
         val hits = ArrayList<Pair<ArbitrageDeal, UiRect>>(deals.size)
         val startY = list.y - scroll
         context.enableScissor(list.x, list.y, list.right(), list.bottom())
-        if (deals.isEmpty()) {
+        if (working && deals.isEmpty()) {
+            for (index in 0 until 6) {
+                val rect = UiRect(list.x, list.y + index * ROW, list.w, ROW - 6)
+                if (rect.y > list.bottom()) break
+                UiDraw.skeletonRow(context, rect)
+            }
+        } else if (deals.isEmpty()) {
             context.drawText(
                 font,
                 emptyHint(),
@@ -84,13 +93,14 @@ class MarketArbitragePage : ConfigPage {
                 if (statusError) HugoTheme.danger else HugoTheme.textDim,
                 false
             )
-        }
-        deals.forEachIndexed { index, deal ->
-            val rect = UiRect(list.x, startY + index * ROW, list.w, ROW - 6)
-            if (rect.bottom() >= list.y && rect.y <= list.bottom()) {
-                drawDeal(context, deal, rect)
+        } else {
+            deals.forEachIndexed { index, deal ->
+                val rect = UiRect(list.x, startY + index * ROW, list.w, ROW - 6)
+                if (rect.bottom() >= list.y && rect.y <= list.bottom()) {
+                    drawDeal(context, deal, rect)
+                }
+                hits += deal to rect
             }
-            hits += deal to rect
         }
         context.disableScissor()
         rows = hits

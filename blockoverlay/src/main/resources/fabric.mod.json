@@ -15,7 +15,8 @@
   },
   "mixins": [
     "hugoutils-blockoverlay.mixins.json",
-    "hugoutils-blockoverlay-indigo.mixins.json"
+    "hugoutils-blockoverlay-indigo.mixins.json",
+    "hugoutils-blockoverlay-sodium.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

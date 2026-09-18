@@ -3,6 +3,7 @@ package dev.henny.hugoutils.client.ui
 import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.ui.ButtonStyle
 import dev.henny.hugoutils.ui.Dialog
+import dev.henny.hugoutils.ui.SettingCard
 import dev.henny.hugoutils.ui.TextFieldLogic
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
@@ -27,6 +28,7 @@ class ProfileConfigPage : ConfigPage {
     private var maxScroll = 0
     private var lastMouseX = 0.0
     private var lastMouseY = 0.0
+    private val heroCard = SettingCard("profile-hero", "Profile", height = 58)
 
     override fun layout(x: Int, y: Int, width: Int, height: Int): Int {
         val names = ConfigManager.profileNames()
@@ -35,7 +37,8 @@ class ProfileConfigPage : ConfigPage {
         val contentH = 86 + 18 + rows * (CARD_H + GAP)
         val h = contentH.coerceAtLeast(height.coerceAtLeast(260))
         frame = UiRect(x, y, width, h)
-        hero = UiRect(x + 8, y + 8, width - 16, 58)
+        heroCard.layout(x + 8, y + 8, width - 16)
+        hero = heroCard.bounds
         val gridTop = hero.bottom() + 10
         grid = UiRect(x + 8, gridTop, width - 16, h - (gridTop - y) - 18)
         val cardW = ((grid.w - GAP * (cols - 1)) / cols).coerceAtLeast(96)
@@ -74,19 +77,10 @@ class ProfileConfigPage : ConfigPage {
         val font = client.textRenderer
         val active = ConfigManager.activeProfile
         val count = ConfigManager.profileNames().size
-        UiWidgets.hoverCard(context, hero, lastMouseX, lastMouseY, key = "profile-hero")
-        context.drawText(font, "Profile", hero.x + 12, hero.y + 12, HugoTheme.text, false)
-        val activeLabel = if (active.isNullOrBlank()) "Kein Profil geladen" else "Aktiv  $active"
-        context.drawText(
-            font,
-            UiDraw.ellipsize(font, activeLabel, hero.w - 24),
-            hero.x + 12,
-            hero.y + 30,
-            if (active.isNullOrBlank()) HugoTheme.textDim else HugoTheme.success,
-            false
-        )
-        val countLabel = "$count gespeichert"
-        context.drawText(font, countLabel, hero.right() - font.getWidth(countLabel) - 12, hero.y + 20, HugoTheme.textMuted, false)
+        heroCard.subtitle = if (active.isNullOrBlank()) "Kein Profil geladen" else "Aktiv  $active"
+        heroCard.trailing = "$count gespeichert"
+        heroCard.trailingColor = HugoTheme.textMuted
+        heroCard.render(context, font, mouseX, mouseY)
 
         context.enableScissor(grid.x, grid.y, grid.right(), grid.bottom())
         cards.forEach { card ->

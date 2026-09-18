@@ -5,6 +5,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.platform.DepthTestFunction
 import com.mojang.blaze3d.vertex.VertexFormat
 import dev.henny.hugoutils.HugoIds
+import dev.henny.hugoutils.client.config.GlowStyle
 import dev.henny.hugoutils.mixin.RenderLayerAccessor
 import dev.henny.hugoutils.mixin.RenderLayerInvoker
 import dev.henny.hugoutils.mixin.RenderSetupAccessor
@@ -24,35 +25,16 @@ object ItemGlowRenderLayer {
         cos(angle).toFloat() to sin(angle).toFloat()
     }
 
-    private val pipelines = Array(4) { thicknessIndex ->
-        Array(directions.size) { directionIndex ->
-            val (x, y) = directions[directionIndex]
-            val thickness = thicknessIndex + 1
-            RenderPipelines.register(
-                RenderPipeline.builder(
-                    RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET,
-                    RenderPipelines.FOG_SNIPPET
-                )
-                    .withLocation(HugoIds.id("pipeline/item_glow_${thickness}_$directionIndex"))
-                    .withVertexShader(HugoIds.id("core/item_glow"))
-                    .withFragmentShader(HugoIds.id("core/item_glow"))
-                    .withShaderDefine("OUTLINE_X", x * thickness)
-                    .withShaderDefine("OUTLINE_Y", y * thickness)
-                    .withSampler("Sampler0")
-                    .withDepthWrite(false)
-                    .withCull(false)
-                    .withDepthTestFunction(DepthTestFunction.LESS_DEPTH_TEST)
-                    .withDepthBias(1f, 10f)
-                    .withBlend(BlendFunction.TRANSLUCENT)
-                    .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
-                    .build()
-            )
-        }
+    private val pipelines = Array(GlowStyle.MAX_HELD_THICKNESS) {
+        arrayOfNulls<RenderPipeline>(directions.size)
     }
 
     private data class LayerKey(val texture: Identifier, val direction: Int, val thickness: Int)
 
-    private val layers = HashMap<LayerKey, RenderLayer>()
+    private val layers = object : LinkedHashMap<LayerKey, RenderLayer>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LayerKey, RenderLayer>): Boolean =
+            size > MAX_CACHED_LAYERS
+    }
 
     fun initialize() {
     }
@@ -65,12 +47,12 @@ object ItemGlowRenderLayer {
         val setup = (baseLayer as RenderLayerAccessor).`hugoutils$getRenderSetup`()
         val textureSpec = (setup as RenderSetupAccessor).`hugoutils$getTextures`()["Sampler0"] ?: return null
         val textureId = (textureSpec as RenderSetupTextureSpecAccessor).`hugoutils$getLocation`()
-        val thickness = thicknessPixels.coerceIn(1, 4)
+        val thickness = thicknessPixels.coerceIn(1, GlowStyle.MAX_HELD_THICKNESS)
         val key = LayerKey(textureId, direction, thickness)
         return layers.getOrPut(key) {
             RenderLayerInvoker.`hugoutils$create`(
                 "hugoutils_item_glow_${thickness}_${direction}_${textureId.namespace}_${textureId.path.replace('/', '_')}",
-                RenderSetup.builder(pipelines[thickness - 1][direction])
+                RenderSetup.builder(pipeline(thickness, direction))
                     .texture("Sampler0", textureId)
                     .translucent()
                     .outlineMode(RenderSetup.OutlineMode.NONE)
@@ -78,4 +60,33 @@ object ItemGlowRenderLayer {
             )
         }
     }
+
+    private fun pipeline(thickness: Int, direction: Int): RenderPipeline {
+        val cached = pipelines[thickness - 1][direction]
+        if (cached != null) return cached
+        val (x, y) = directions[direction]
+        val created = RenderPipelines.register(
+            RenderPipeline.builder(
+                RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET,
+                RenderPipelines.FOG_SNIPPET
+            )
+                .withLocation(HugoIds.id("pipeline/item_glow_${thickness}_$direction"))
+                .withVertexShader(HugoIds.id("core/item_glow"))
+                .withFragmentShader(HugoIds.id("core/item_glow"))
+                .withShaderDefine("OUTLINE_X", x * thickness)
+                .withShaderDefine("OUTLINE_Y", y * thickness)
+                .withSampler("Sampler0")
+                .withDepthWrite(false)
+                .withCull(false)
+                .withDepthTestFunction(DepthTestFunction.LESS_DEPTH_TEST)
+                .withDepthBias(1f, 10f)
+                .withBlend(BlendFunction.TRANSLUCENT)
+                .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+                .build()
+        )
+        pipelines[thickness - 1][direction] = created
+        return created
+    }
+
+    private const val MAX_CACHED_LAYERS = 384
 }

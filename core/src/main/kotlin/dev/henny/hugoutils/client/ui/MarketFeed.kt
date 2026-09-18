@@ -148,16 +148,25 @@ object MarketNames {
 }
 
 object MarketStacks {
-    private val cache = HashMap<String, ItemStack?>()
+    private val cache = object : LinkedHashMap<String, ItemStack?>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ItemStack?>): Boolean =
+            size > MAX_STACKS
+    }
 
     fun of(quote: MarketQuote): ItemStack? = ofIds(quote.minecraftId, quote.id, quote.name)
 
     fun of(listing: MarketListing): ItemStack? = ofIds(listing.minecraftId, listing.itemId, listing.name)
 
+    @Synchronized
     fun ofIds(minecraftId: String?, id: String?, name: String): ItemStack? {
         val key = (minecraftId ?: id ?: name).lowercase()
         if (key.isBlank() || key == "item" || key == "eintrag") return null
         return cache.getOrPut(key) { resolve(minecraftId, id) }
+    }
+
+    @Synchronized
+    fun clear() {
+        cache.clear()
     }
 
     fun label(minecraftId: String?): String? {
@@ -184,6 +193,8 @@ object MarketStacks {
         if (!Registries.ITEM.containsId(parsed)) return null
         return ItemStack(Registries.ITEM.get(parsed))
     }
+
+    private const val MAX_STACKS = 256
 }
 
 class SlidingFeed {
