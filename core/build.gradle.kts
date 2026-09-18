@@ -26,7 +26,7 @@ dependencies {
     common(project(":ui", configuration = "namedElements")) { isTransitive = false }
     testImplementation(project(":ui", configuration = "namedElements"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
 }
 
 tasks.processResources {
