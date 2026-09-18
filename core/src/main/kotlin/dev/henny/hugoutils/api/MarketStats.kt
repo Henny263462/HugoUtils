@@ -52,11 +52,11 @@ data class MarketQuote(
     val auctionPoints: List<ChartPoint> = emptyList(),
     val orderPoints: List<ChartPoint> = emptyList()
 ) {
-    val chart: List<Float> get() = series.map { it.toFloat() }
-    val auctionChart: List<Float>
-        get() = auctionPoints.map { it.price.toFloat() }.ifEmpty { auctionSeries.map { it.toFloat() } }.ifEmpty { chart }
-    val orderChart: List<Float>
-        get() = orderPoints.map { it.price.toFloat() }.ifEmpty { orderSeries.map { it.toFloat() } }
+    val chart: List<Float> = series.map { it.toFloat() }
+    val auctionChart: List<Float> =
+        auctionPoints.map { it.price.toFloat() }.ifEmpty { auctionSeries.map { it.toFloat() } }.ifEmpty { chart }
+    val orderChart: List<Float> =
+        orderPoints.map { it.price.toFloat() }.ifEmpty { orderSeries.map { it.toFloat() } }
 
     fun cardPrice(): String? = MarketStats.formatCardPrice(auctionAverage ?: average ?: last)
     fun cardCount(): String? = MarketStats.formatCount(count)

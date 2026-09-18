@@ -193,12 +193,12 @@ object ClientApi {
         val body = loader()
         val now = System.currentTimeMillis()
         cache[tagged] = Cached(body, now)
-        cache.entries.removeIf { now - it.value.at > CACHE_MAX_AGE_MS }
         if (cache.size > CACHE_MAX_ENTRIES) {
-            cache.entries
-                .sortedBy { it.value.at }
-                .take(cache.size - CACHE_MAX_ENTRIES)
-                .forEach { cache.remove(it.key, it.value) }
+            val cutoff = now - CACHE_MAX_AGE_MS
+            cache.entries.removeIf { now - it.value.at > CACHE_MAX_AGE_MS || it.value.at < cutoff }
+            if (cache.size > CACHE_MAX_ENTRIES) {
+                cache.keys.take(cache.size - CACHE_MAX_ENTRIES).forEach { cache.remove(it) }
+            }
         }
         return body
     }
@@ -294,6 +294,6 @@ object ClientApi {
         fun fresh(ttlMs: Long) = System.currentTimeMillis() - at < ttlMs
     }
 
-    private const val CACHE_MAX_ENTRIES = 48
-    private const val CACHE_MAX_AGE_MS = 60_000L
+    private const val CACHE_MAX_ENTRIES = 96
+    private const val CACHE_MAX_AGE_MS = 90_000L
 }

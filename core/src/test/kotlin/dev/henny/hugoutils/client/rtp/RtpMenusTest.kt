@@ -11,6 +11,8 @@ class RtpMenusTest {
         assertTrue(RtpMenus.isRtpTitle("§6Random Teleport"))
         assertTrue(RtpMenus.isRtpTitle("Zufalls-TP"))
         assertTrue(RtpMenus.isRtpTitle("Zufallsteleport"))
+        assertTrue(RtpMenus.isRtpTitle("Wilderness"))
+        assertTrue(RtpMenus.isRtpTitle("Wildnis-Teleport"))
         assertFalse(RtpMenus.isRtpTitle("Warps"))
         assertFalse(RtpMenus.isRtpTitle("Teleport"))
         assertFalse(RtpMenus.isRtpTitle(""))
@@ -23,5 +25,15 @@ class RtpMenusTest {
         assertTrue(RtpMenus.isRtpItem("Zufalls-Teleport"))
         assertFalse(RtpMenus.isRtpItem("Nether"))
         assertFalse(RtpMenus.isRtpItem("End"))
+    }
+
+    @Test
+    fun detectsRtpCommands() {
+        assertTrue(RtpMenus.isRtpCommand("rtp"))
+        assertTrue(RtpMenus.isRtpCommand("/rtp overworld"))
+        assertTrue(RtpMenus.isRtpCommand("wild"))
+        assertTrue(RtpMenus.isRtpCommand("randomtp"))
+        assertFalse(RtpMenus.isRtpCommand("spawn"))
+        assertFalse(RtpMenus.isRtpCommand("tp"))
     }
 }

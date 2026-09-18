@@ -406,6 +406,6 @@ class MarketHomePage : ConfigPage {
 
     companion object {
         private const val ROW = 28
-        private const val LIVE_MS = 8_000L
+        private const val LIVE_MS = 20_000L
     }
 }

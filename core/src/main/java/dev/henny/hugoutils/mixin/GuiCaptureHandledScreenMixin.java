@@ -10,6 +10,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.screen.slot.SlotActionType;
 
 @Mixin(HandledScreen.class)
 public abstract class GuiCaptureHandledScreenMixin {
@@ -42,6 +44,17 @@ public abstract class GuiCaptureHandledScreenMixin {
         CallbackInfoReturnable<Boolean> cir
     ) {
         RtpShare.observeHandledClick((HandledScreen<?>) (Object) this, click);
+    }
+
+    @Inject(method = "onMouseClick(Lnet/minecraft/screen/slot/Slot;IILnet/minecraft/screen/slot/SlotActionType;)V", at = @At("HEAD"))
+    private void hugoutils$observeRtpSlot(
+        Slot slot,
+        int slotId,
+        int button,
+        SlotActionType actionType,
+        CallbackInfo ci
+    ) {
+        RtpShare.observeSlotClick((HandledScreen<?>) (Object) this, slot);
     }
 
 }

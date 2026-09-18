@@ -17,9 +17,11 @@ class RtpPrivacyScreen : Screen(Text.literal("RTP-Karte")) {
 
     override fun shouldPause(): Boolean = false
 
-    override fun shouldCloseOnEsc(): Boolean = false
+    override fun shouldCloseOnEsc(): Boolean = true
 
-    override fun close() {}
+    override fun close() {
+        RtpShare.deferPrompt()
+    }
 
     override fun init() {
         super.init()

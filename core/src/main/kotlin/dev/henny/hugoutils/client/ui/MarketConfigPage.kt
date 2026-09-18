@@ -236,10 +236,7 @@ class MarketConfigPage : ConfigPage {
         }
         if (!gridFrame.contains(mouseX, mouseY)) return false
         val max = maxGridScroll()
-        if (max <= 0) {
-            if (hasMore) load(false, append = true)
-            return false
-        }
+        if (max <= 0) return false
         gridScroll = (gridScroll - (amount * 22).toInt()).coerceIn(0, max)
         if (hasMore && gridScroll >= (max * 0.78f).toInt()) {
             load(false, append = true)
@@ -398,9 +395,6 @@ class MarketConfigPage : ConfigPage {
                     selectedQuote = id?.let { quotes[it] } ?: selectedQuote
                 }
                 if (!append) hydratePinned()
-                if (hasMore && !append && maxGridScroll() <= 0) {
-                    load(false, append = true)
-                }
             }
         }) {
             val result = ClientApi.items(query = q, page = requestPage, limit = PAGE_SIZE, force = force)
@@ -507,7 +501,10 @@ class MarketConfigPage : ConfigPage {
         val cardW = ((gridFrame.w - gap * (cols - 1)) / cols).coerceAtLeast(110)
         val cardH = 78
         val startY = gridFrame.y - gridScroll
-        cards = visible.mapIndexed { index, obj ->
+        val first = ((gridScroll / (cardH + gap)) * cols).coerceIn(0, visible.size)
+        val last = (first + cols * ((gridFrame.h / (cardH + gap)) + 3)).coerceIn(first, visible.size)
+        cards = visible.subList(first, last).mapIndexed { offset, obj ->
+            val index = first + offset
             val col = index % cols
             val row = index / cols
             val rect = UiRect(
@@ -815,8 +812,12 @@ class MarketConfigPage : ConfigPage {
 
     private fun drawItemList(context: DrawContext) {
         val font = client.textRenderer
+        val visible = displayedItems()
         val startY = gridFrame.y - gridScroll
-        cards = displayedItems().mapIndexed { index, obj ->
+        val first = (gridScroll / ITEM_ROW).coerceIn(0, visible.size)
+        val last = (first + (gridFrame.h / ITEM_ROW) + 4).coerceIn(first, visible.size)
+        cards = visible.subList(first, last).mapIndexed { offset, obj ->
+            val index = first + offset
             Card(
                 obj,
                 quoteOf(obj),
@@ -1032,7 +1033,9 @@ class MarketConfigPage : ConfigPage {
 
     private fun quoteOf(obj: JsonObject): MarketQuote {
         val id = MarketStats.itemId(obj)
-        return id?.let { quotes[it] } ?: MarketStats.quote(obj)
+        return id?.let { quotes[it] } ?: MarketStats.quote(obj).also { next ->
+            if (id != null) quotes = quotes + (id to next)
+        }
     }
 
     private data class Card(val obj: JsonObject, val quote: MarketQuote, val rect: UiRect)

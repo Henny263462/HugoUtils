@@ -13,13 +13,33 @@ object RtpMenus {
             text.contains("zufallstp") ||
             text.contains("zufalls tp") ||
             text.contains("zufallsteleport") ||
-            text.contains("zufalls teleport")
+            text.contains("zufalls teleport") ||
+            text.contains("wildnis") ||
+            text.contains("wilderness") ||
+            text.contains("wild teleport")
     }
 
     fun isRtpItem(name: String): Boolean {
         val text = normalize(name)
         if (text.isEmpty()) return false
-        return isRtpTitle(text) || text.startsWith("rtp") || text.contains(" rtp")
+        return isRtpTitle(text) ||
+            text.startsWith("rtp") ||
+            text.contains(" rtp") ||
+            text.contains("wildnis") ||
+            text.contains("wilderness")
+    }
+
+    fun isRtpCommand(command: String): Boolean {
+        val text = normalize(command.removePrefix("/"))
+        if (text.isEmpty()) return false
+        val name = text.substringBefore(' ')
+        return name == "rtp" ||
+            name == "wild" ||
+            name == "wilderness" ||
+            name == "wildnis" ||
+            name == "randomtp" ||
+            name == "randomteleport" ||
+            name == "wildtp"
     }
 
     fun normalize(raw: String): String =

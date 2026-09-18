@@ -66,15 +66,25 @@ object BlockOverlayTinter {
     }
 
     private fun colorGetter(type: Class<*>): Method? {
+        if (type in missingGetters) return null
         getters[type]?.let { return it }
-        val found = findMethod(type, listOf("baseColor", "getColor"), INTEGER) ?: return null
+        val found = findMethod(type, listOf("baseColor", "getColor", "color"), INTEGER)
+        if (found == null) {
+            missingGetters.add(type)
+            return null
+        }
         getters.putIfAbsent(type, found)
         return found
     }
 
     private fun colorSetter(type: Class<*>): Method? {
+        if (type in missingSetters) return null
         setters[type]?.let { return it }
-        val found = findMethod(type, listOf("setColor"), INTEGER, INTEGER) ?: return null
+        val found = findMethod(type, listOf("setColor", "color"), INTEGER, INTEGER)
+        if (found == null) {
+            missingSetters.add(type)
+            return null
+        }
         setters.putIfAbsent(type, found)
         return found
     }
@@ -82,21 +92,32 @@ object BlockOverlayTinter {
     private fun findMethod(type: Class<*>, names: List<String>, vararg args: Class<*>): Method? {
         var current: Class<*>? = type
         while (current != null && current != Any::class.java) {
-            for (name in names) {
-                val method = runCatching { current.getMethod(name, *args) }.getOrNull()
-                    ?: runCatching { current.getDeclaredMethod(name, *args) }.getOrNull()
-                if (method != null) {
-                    method.isAccessible = true
-                    return method
-                }
+            val found = methodOn(current, names, *args)
+            if (found != null) return found
+            current.interfaces.forEach { iface ->
+                methodOn(iface, names, *args)?.let { return it }
             }
             current = current.superclass
         }
         return null
     }
 
+    private fun methodOn(type: Class<*>, names: List<String>, vararg args: Class<*>): Method? {
+        for (name in names) {
+            val method = runCatching { type.getMethod(name, *args) }.getOrNull()
+                ?: runCatching { type.getDeclaredMethod(name, *args) }.getOrNull()
+            if (method != null) {
+                method.isAccessible = true
+                return method
+            }
+        }
+        return null
+    }
+
     private val getters = ConcurrentHashMap<Class<*>, Method>()
     private val setters = ConcurrentHashMap<Class<*>, Method>()
+    private val missingGetters = ConcurrentHashMap.newKeySet<Class<*>>()
+    private val missingSetters = ConcurrentHashMap.newKeySet<Class<*>>()
     private val INTEGER = Integer.TYPE
 }
 

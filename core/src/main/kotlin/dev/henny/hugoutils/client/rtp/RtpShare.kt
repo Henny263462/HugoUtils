@@ -5,8 +5,8 @@ import dev.henny.hugoutils.api.ClientApiException
 import dev.henny.hugoutils.api.ClientJobs
 import dev.henny.hugoutils.api.ClientSessionStore
 import dev.henny.hugoutils.api.JsonView
-import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.gui.capture.GuiCaptureScreenGeometry
+import dev.henny.hugoutils.client.config.ConfigManager
 import dev.henny.hugoutils.client.ui.PopupManager
 import dev.henny.hugoutils.client.ui.RtpPrivacyScreen
 import dev.henny.hugoutils.ui.Dialog
@@ -14,6 +14,7 @@ import dev.henny.hugoutils.ui.Toast
 import dev.henny.hugoutils.ui.UiOverlays
 import com.google.gson.JsonObject
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.Click
@@ -21,15 +22,17 @@ import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.client.world.ClientWorld
 import net.minecraft.item.ItemStack
 import net.minecraft.registry.RegistryKey
+import net.minecraft.screen.slot.Slot
 import net.minecraft.util.math.BlockPos
 import net.minecraft.world.World
 import org.slf4j.LoggerFactory
 
 object RtpShare {
     private val logger = LoggerFactory.getLogger("HugoUtils-RTP")
-    private const val ARM_MS = 15_000L
-    private const val JUMP_BLOCKS = 40.0
-    private const val CHUNK_WAIT_MS = 3_000L
+    private const val ARM_MS = 20_000L
+    private const val JUMP_BLOCKS = 24.0
+    private const val CHUNK_WAIT_MS = 8_000L
+    private const val PROMPT_COOLDOWN_MS = 30 * 60_000L
 
     @Volatile private var armedUntil = 0L
     @Volatile private var startX = 0.0
@@ -39,17 +42,29 @@ object RtpShare {
     @Volatile private var pendingCaptureUntil = 0L
     @Volatile private var sending = false
     @Volatile private var pendingChoice: Boolean? = null
+    @Volatile private var promptAfter = 0L
 
     private const val CONFIRM_REQUIRED = "Bitte bestätigen."
 
     fun initialize() {
-        ClientPlayConnectionEvents.DISCONNECT.register { _, _ -> disarm() }
+        ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
+            disarm()
+            promptAfter = 0L
+        }
         ClientTickEvents.END_CLIENT_TICK.register { client -> tick(client) }
+        ClientSendMessageEvents.COMMAND.register { command ->
+            if (RtpMenus.isRtpCommand(command)) arm(MinecraftClient.getInstance())
+        }
     }
 
     fun sharing(): Boolean = ConfigManager.config.rtpShareEnabled == true
 
     fun choose(share: Boolean) = setFromUi(share)
+
+    fun deferPrompt() {
+        promptAfter = System.currentTimeMillis() + PROMPT_COOLDOWN_MS
+        closePrivacyPrompt()
+    }
 
     fun setFromUi(share: Boolean, confirm: Boolean = false) {
         val previous = ConfigManager.config.rtpShareEnabled
@@ -129,22 +144,34 @@ object RtpShare {
         arm(MinecraftClient.getInstance())
     }
 
+    @JvmStatic
+    fun observeSlotClick(screen: HandledScreen<*>, slot: Slot?) {
+        if (slot == null || slot.stack.isEmpty) {
+            if (RtpMenus.isRtpTitle(screen.title.string)) arm(MinecraftClient.getInstance())
+            return
+        }
+        val title = screen.title.string
+        val stackName = stackName(slot.stack)
+        if (!RtpMenus.isRtpTitle(title) && !RtpMenus.isRtpItem(stackName)) return
+        arm(MinecraftClient.getInstance())
+    }
+
     private fun tick(client: MinecraftClient) {
         maybePrompt(client)
         val player = client.player ?: return
         val world = client.world ?: return
         val now = System.currentTimeMillis()
         if (pendingCaptureUntil > now) {
-            tryCapture(client, world)
+            tryCapture(client, world, now)
             return
         }
         if (now > armedUntil) return
-        val dimension = rtpDimension(world) ?: return
+        val dimension = rtpDimension(world)
         val moved = player.squaredDistanceTo(startX, startY, startZ) >= JUMP_BLOCKS * JUMP_BLOCKS
         val changedWorld = dimension != startDimension
         if (!moved && !changedWorld) return
         pendingCaptureUntil = now + CHUNK_WAIT_MS
-        tryCapture(client, world)
+        tryCapture(client, world, now)
     }
 
     private fun maybePrompt(client: MinecraftClient) {
@@ -152,6 +179,7 @@ object RtpShare {
         if (client.player == null || client.world == null) return
         if (client.currentScreen is RtpPrivacyScreen) return
         if (client.currentScreen != null) return
+        if (System.currentTimeMillis() < promptAfter) return
         client.setScreen(RtpPrivacyScreen())
     }
 
@@ -164,6 +192,7 @@ object RtpShare {
         startDimension = rtpDimension(world)
         armedUntil = System.currentTimeMillis() + ARM_MS
         pendingCaptureUntil = 0L
+        logger.debug("RTP armed at {} {} {}", player.blockX, player.blockY, player.blockZ)
     }
 
     private fun disarm() {
@@ -171,7 +200,7 @@ object RtpShare {
         pendingCaptureUntil = 0L
     }
 
-    private fun tryCapture(client: MinecraftClient, world: ClientWorld) {
+    private fun tryCapture(client: MinecraftClient, world: ClientWorld, now: Long) {
         if (!sharing()) {
             disarm()
             return
@@ -181,13 +210,15 @@ object RtpShare {
             return
         }
         val player = client.player ?: return
-        val dimension = rtpDimension(world) ?: return
+        val dimension = rtpDimension(world)
         val pos = player.blockPos
-        if (world.chunkManager.getWorldChunk(pos.x shr 4, pos.z shr 4) == null) return
-        val biome = biomeId(world, pos)
-        if (biome.isBlank() || biome == "unknown") {
-            if (System.currentTimeMillis() < pendingCaptureUntil) return
+        if (world.chunkManager.getWorldChunk(pos.x shr 4, pos.z shr 4) == null) {
+            if (now < pendingCaptureUntil || now < armedUntil) return
+            disarm()
+            return
         }
+        val biome = biomeId(world, pos)
+        if ((biome.isBlank() || biome == "unknown") && now < pendingCaptureUntil) return
         if (sending) return
         sending = true
         armedUntil = 0L
@@ -232,20 +263,19 @@ object RtpShare {
 
     private fun stackName(stack: ItemStack): String = stack.name.string
 
-    private fun rtpDimension(world: ClientWorld): String? {
+    private fun rtpDimension(world: ClientWorld): String {
         val key = world.registryKey
         return when {
-            key === World.OVERWORLD || matches(key, "overworld") -> "overworld"
             key === World.NETHER || matches(key, "the_nether", "nether") -> "nether"
             key === World.END || matches(key, "the_end", "end") -> "end"
-            else -> null
+            else -> "overworld"
         }
     }
 
     private fun matches(key: RegistryKey<World>, vararg names: String): Boolean {
         val path = key.value.path
         val id = key.value.toString()
-        return names.any { path == it || id.endsWith(":$it") }
+        return names.any { path == it || id.endsWith(":$it") || path.contains(it) }
     }
 
     private fun biomeId(world: ClientWorld, pos: BlockPos): String {
