@@ -26,7 +26,7 @@ dependencies {
     modCompileOnly("net.fabricmc.fabric-api:fabric-renderer-indigo:5.0.3+f4ffd2e53e")
     common(project(":core", configuration = "namedElements")) { isTransitive = false }
     common(project(":ui", configuration = "namedElements")) { isTransitive = false }
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }
 
