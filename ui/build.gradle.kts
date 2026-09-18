@@ -19,7 +19,7 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${rootProject.property("kotlin_loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${rootProject.property("fabric_version")}")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
 }
 
 tasks.processResources {
